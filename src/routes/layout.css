@@ -1,9 +1,84 @@
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Outfit', 'Inter', sans-serif;
-  --color-primary-blue: #123A84;
-  --color-accent-yellow: #F4B400;
-  --color-border-gray: #E5E7EB;
+  --font-serif: 'Georgia', 'Playfair Display', serif;
+  --font-sans: 'Inter', 'Outfit', system-ui, sans-serif;
+  
+  /* Academic / Editorial Palette */
+  --color-academic-navy: #0f172a;      /* Slate 900 */
+  --color-academic-slate: #334155;     /* Slate 700 */
+  --color-academic-cream: #faf9f6;     /* Warm Off-White / Cream */
+  --color-academic-accent: #991b1b;    /* Scholastic Crimson */
+  --color-academic-accent-light: #fef2f2;
 }
 
+@layer base {
+  body {
+    background-color: var(--color-academic-cream);
+    color: var(--color-academic-navy);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  /* Elegant minimal scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-academic-cream);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+}
+
+/* Custom Editorial Classes */
+.text-serif {
+  font-family: var(--font-serif);
+}
+
+.text-sans {
+  font-family: var(--font-sans);
+}
+
+/* Academic style cards: sharp, 1px border, light shadow */
+.academic-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease-in-out;
+}
+
+.academic-card:hover {
+  border-color: var(--color-academic-slate);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+}
+
+/* Standard sharp academic buttons */
+.btn-academic-primary {
+  background-color: var(--color-academic-navy);
+  color: #ffffff;
+  border: 1px solid var(--color-academic-navy);
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-academic-primary:hover {
+  background-color: var(--color-academic-slate);
+  border-color: var(--color-academic-slate);
+}
+
+.btn-academic-secondary {
+  background-color: transparent;
+  color: var(--color-academic-navy);
+  border: 1px solid #cbd5e1;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-academic-secondary:hover {
+  border-color: var(--color-academic-navy);
+  background-color: rgba(15, 23, 42, 0.02);
+}
