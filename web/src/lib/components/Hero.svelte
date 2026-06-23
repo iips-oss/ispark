@@ -29,17 +29,17 @@
 			<div class="lg:col-span-7 space-y-6">
 				
 				<!-- Academic Affiliation Badge -->
-				<div class="inline-flex items-center px-3 py-1 bg-[#881B1B] rounded-sm text-[10px] font-bold tracking-widest uppercase text-white">
+				<div class="inline-flex items-center px-3 py-1 bg-[#2563eb] rounded-sm text-[10px] font-bold tracking-widest uppercase text-white">
 					{badgeText}
 				</div>
 
 				<!-- Main Institutional Headline -->
-				<h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold text-[#881B1B] font-serif tracking-tight leading-none">
+				<h1 class="text-5xl sm:text-6xl lg:text-7xl font-bold text-[#2563eb] font-serif tracking-tight leading-none">
 					{titleText}
 				</h1>
-				
+
 				<!-- Subtitle -->
-				<h2 class="text-lg sm:text-xl font-semibold text-primary-dark font-sans tracking-tight">
+				<h2 class="text-lg sm:text-xl font-semibold text-[#1e3a5f] font-sans tracking-tight">
 					{subtitleText}
 				</h2>
 
@@ -52,13 +52,13 @@
 				<div class="flex flex-col sm:flex-row gap-3 pt-2">
 					<a
 						href={primaryCtaHref}
-						class="inline-flex items-center justify-center bg-[#881B1B] text-white font-semibold text-xs tracking-wider uppercase px-6 py-3 hover:bg-[#6d1616] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
+						class="inline-flex items-center justify-center bg-[#2563eb] text-white font-semibold text-xs tracking-wider uppercase px-6 py-3 hover:bg-[#1d4ed8] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] focus-visible:ring-offset-2"
 					>
 						{primaryCtaText}
 					</a>
 					<a
 						href={secondaryCtaHref}
-						class="inline-flex items-center justify-center border-2 border-[#C89B3C] text-[#881B1B] font-semibold text-xs tracking-wider uppercase px-6 py-3 hover:bg-[#C89B3C] hover:text-white transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
+						class="inline-flex items-center justify-center border-2 border-[#2563eb] text-[#2563eb] font-semibold text-xs tracking-wider uppercase px-6 py-3 hover:bg-[#2563eb] hover:text-white transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563eb] focus-visible:ring-offset-2"
 					>
 						{secondaryCtaText}
 					</a>
@@ -67,18 +67,18 @@
 			</div>
 
 			<!-- Right Column: Activity Grading Matrix -->
-			<div class="lg:col-span-5 bg-[#F8F8F8] border border-slate-200 p-6 rounded-sm">
-				<h2 class="text-lg font-bold font-serif text-primary-dark mb-3">
+			<div class="lg:col-span-5 bg-[#284B63] border border-slate-200 p-6 rounded-sm">
+				<h2 class="text-lg font-bold font-serif text-white mb-3">
 					Activity Grading Matrix
 				</h2>
-				<p class="text-xs text-slate-500 font-sans leading-relaxed mb-5 border-b border-slate-200 pb-4">
+				<p class="text-xs text-white/70 font-sans leading-relaxed mb-5 border-b border-white/20 pb-4">
 					Extracurricular points are mapped directly to grades in semester results under the DAVV guidelines.
 				</p>
-				
+
 				<div class="space-y-3">
 					{#each grades as item}
-						<div class="flex items-center justify-between py-1.5 border-b border-slate-100 last:border-b-0">
-							<span class="text-sm font-medium text-slate-700 font-sans">{item.range}</span>
+						<div class="flex items-center justify-between py-1.5 border-b border-white/10 last:border-b-0">
+							<span class="text-sm font-medium text-white/90 font-sans">{item.range}</span>
 							<span class="inline-flex items-center px-3 py-1 rounded-sm text-xs font-bold border {item.colorClass} tracking-wide font-sans">
 								{item.grade}
 							</span>
