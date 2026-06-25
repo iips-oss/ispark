@@ -52,7 +52,7 @@
 					{#each rules as rule}
 						<li class="flex items-start gap-3">
 							<!-- Red Square Bullet (Figma spec) -->
-							<span class="w-2.5 h-2.5 bg-[#881B1B] mt-1 shrink-0"></span>
+							<span class="w-2.5 h-2.5 bg-acad-red mt-1 shrink-0"></span>
 							<div>
 								<h4 class="text-sm font-bold text-slate-800 font-sans">{rule.title}:</h4>
 								<p class="text-xs text-slate-600 leading-relaxed font-sans font-normal mt-1">{rule.desc}</p>
@@ -80,7 +80,7 @@
 				<div class="pt-2">
 					<a
 						href="/portal"
-						class="inline-flex items-center justify-center bg-[#881B1B] hover:bg-[#731717] text-white font-bold text-xs tracking-wider uppercase px-8 py-3.5 border border-[#881B1B] transition-colors duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
+						class="inline-flex items-center justify-center bg-acad-red hover:bg-acad-red/90 text-white font-bold text-xs tracking-wider uppercase px-8 py-3.5 border border-acad-red transition-colors duration-250 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2"
 					>
 						Enter Portal
 					</a>
