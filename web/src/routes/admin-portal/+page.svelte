@@ -7,6 +7,7 @@
 <svelte:head>
   <title>Administrative Control Portal | iSPARC IIPS DAVV</title>
   <meta name="description" content="Secure portal access for iSPARC administrative users and coordinators at IIPS DAVV, Indore." />
+  <meta name="robots" content="noindex, nofollow" />
 </svelte:head>
 
 <div class="min-h-screen bg-bg-main flex flex-col items-center w-full">

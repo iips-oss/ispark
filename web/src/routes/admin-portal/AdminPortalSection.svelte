@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { fade, slide } from 'svelte/transition';
 
   const formId = "admin-login";
@@ -12,6 +13,33 @@
   let submitting = $state(false);
   let loginSuccess = $state(false);
   let errorMsg = $state("");
+
+  // Rate Limiting & Lockout states
+  let failedAttempts = $state(0);
+  let lockoutTimeLeft = $state(0);
+  let lockoutInterval: any = null;
+
+  function startLockout() {
+    lockoutTimeLeft = 60;
+    errorMsg = "Too many failed login attempts. Please try again in 60 seconds.";
+    
+    if (lockoutInterval) clearInterval(lockoutInterval);
+    
+    lockoutInterval = setInterval(() => {
+      lockoutTimeLeft -= 1;
+      if (lockoutTimeLeft <= 0) {
+        clearInterval(lockoutInterval);
+        failedAttempts = 0;
+        errorMsg = "";
+      } else {
+        errorMsg = `Too many failed login attempts. Please try again in ${lockoutTimeLeft} seconds.`;
+      }
+    }, 1000);
+  }
+
+  onDestroy(() => {
+    if (lockoutInterval) clearInterval(lockoutInterval);
+  });
 
   // Form validity derived state
   let isFormValid = $derived(adminId.trim() !== "" && password.trim() !== "");
@@ -42,15 +70,25 @@
   // Submit Handler
   function handleSubmit(event: SubmitEvent) {
     event.preventDefault();
-    if (!isFormValid) return;
+    if (!isFormValid || lockoutTimeLeft > 0) return;
 
     submitting = true;
     errorMsg = "";
 
-    // Simulate administrative login
+    // Simulate administrative login (correct credentials: admin / admin123)
     setTimeout(() => {
       submitting = false;
-      loginSuccess = true;
+      if (adminId === "admin" && password === "admin123") {
+        loginSuccess = true;
+        failedAttempts = 0;
+      } else {
+        failedAttempts += 1;
+        if (failedAttempts >= 5) {
+          startLockout();
+        } else {
+          errorMsg = `Invalid Administrator ID or Password. (Attempt ${failedAttempts} of 5)`;
+        }
+      }
     }, 1500);
   }
 </script>
@@ -164,9 +202,10 @@
             id="{formId}-admin-id"
             type="text"
             bind:value={adminId}
+            disabled={lockoutTimeLeft > 0}
             placeholder="Enter your administrator ID"
             autoComplete="username"
-            class="w-full px-3.5 py-2.5 bg-white rounded-lg border border-border-base text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-inst-navy focus:ring-2 focus:ring-inst-navy/10 transition-all duration-200"
+            class="w-full px-3.5 py-2.5 bg-white rounded-lg border border-border-base text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-inst-navy focus:ring-2 focus:ring-inst-navy/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             required
           />
         </div>
@@ -181,9 +220,10 @@
               id="{formId}-password"
               type={showPassword ? "text" : "password"}
               bind:value={password}
+              disabled={lockoutTimeLeft > 0}
               placeholder="Enter your password"
               autoComplete="current-password"
-              class="w-full pl-3.5 pr-12 py-2.5 bg-white rounded-lg border border-border-base text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-inst-navy focus:ring-2 focus:ring-inst-navy/10 transition-all duration-200"
+              class="w-full pl-3.5 pr-12 py-2.5 bg-white rounded-lg border border-border-base text-[13px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-inst-navy focus:ring-2 focus:ring-inst-navy/10 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               required
             />
             <button
@@ -209,18 +249,23 @@
 
         <!-- Checkbox Options & Forgot Password -->
         <div class="flex items-center justify-between text-xs pt-1">
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-          </label>
+          <div></div>
           
           <button type="button" class="font-bold text-acad-red hover:underline transition-colors focus:outline-none">
             Forgot Password?
           </button>
         </div>
 
+        {#if errorMsg}
+          <div class="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg font-semibold animate-fade-in" transition:slide>
+            {errorMsg}
+          </div>
+        {/if}
+
         <!-- Submit Button -->
         <button
           type="submit"
-          disabled={submitting || !isFormValid}
+          disabled={submitting || !isFormValid || lockoutTimeLeft > 0}
           class="w-full py-3.5 bg-inst-navy hover:bg-inst-navy/90 text-white font-bold text-sm tracking-widest uppercase rounded-xl transition duration-200 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {#if submitting}
