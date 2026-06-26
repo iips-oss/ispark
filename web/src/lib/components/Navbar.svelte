@@ -57,7 +57,7 @@
       <!-- Left Section: Academic Logo & Branding -->
       <a
         href="/"
-        on:click={closeMenu}
+        onclick={closeMenu}
         class="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold focus-visible:ring-offset-2 rounded-lg transition-all duration-200"
       >
         <div class="flex flex-col justify-center">
@@ -109,7 +109,7 @@
 
       <div class="flex md:hidden items-center">
         <button
-          on:click={toggleMenu}
+          onclick={toggleMenu}
           type="button"
           class="relative flex flex-col justify-center items-center w-10 h-10 rounded-lg text-slate-800 hover:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold"
           aria-label={isOpen ? "Close menu" : "Open menu"}
@@ -149,7 +149,7 @@
             <li>
               <a
                 href={item.href}
-                on:click={closeMenu}
+                onclick={closeMenu}
                 class="block w-full px-3 py-2.5 rounded-md text-sm font-bold tracking-wider uppercase transition-all duration-200 font-sans {isActive(
                   item.href,
                 )
@@ -168,7 +168,7 @@
         <div class="flex flex-col gap-2.5 px-3 pb-2">
           <a
             href={loginHref}
-            on:click={closeMenu}
+            onclick={closeMenu}
             class="flex items-center justify-center w-full py-2.5 rounded-md text-sm font-semibold border border-slate-350 text-slate-800 hover:bg-slate-900 hover:text-white transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-gold font-sans"
           >
             Portal Login
