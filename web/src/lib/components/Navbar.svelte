@@ -1,49 +1,49 @@
 <script lang="ts">
-  import { page } from "$app/state";
-  import { slide } from "svelte/transition";
+	import { page } from '$app/state';
+	import { slide } from 'svelte/transition';
 
-  // Define interface for navigation links
-  interface NavItem {
-    label: string;
-    href: string;
-  }
+	// Define interface for navigation links
+	interface NavItem {
+		label: string;
+		href: string;
+	}
 
-  // Props configuration using Svelte 5 runes
-  let {
-    navItems = [
-      { label: "Overview", href: "/" },
-      { label: "Skill Tracks", href: "#tracks" },
-      { label: "Activities", href: "#activities" },
-      { label: "Leaderboard", href: "#leaderboard" },
-      { label: "Grading Scheme", href: "#grading-scheme" },
-    ] as NavItem[],
-    loginHref = "/login",
-  } = $props();
+	// Props configuration using Svelte 5 runes
+	let {
+		navItems = [
+			{ label: 'Overview', href: '/' },
+			{ label: 'Skill Tracks', href: '#tracks' },
+			{ label: 'Activities', href: '#activities' },
+			{ label: 'Leaderboard', href: '#leaderboard' },
+			{ label: 'Grading Scheme', href: '#grading-scheme' }
+		] as NavItem[],
+		loginHref = '/login'
+	} = $props();
 
-  // Reactive state for the mobile menu drawer
-  let isOpen = $state(false);
+	// Reactive state for the mobile menu drawer
+	let isOpen = $state(false);
 
-  function toggleMenu() {
-    isOpen = !isOpen;
-  }
+	function toggleMenu() {
+		isOpen = !isOpen;
+	}
 
-  function closeMenu() {
-    isOpen = false;
-  }
+	function closeMenu() {
+		isOpen = false;
+	}
 
-  // Helper to check if a navigation item is active
-  function isActive(href: string): boolean {
-    const path = page.url.pathname;
-    const hash = page.url.hash;
+	// Helper to check if a navigation item is active
+	function isActive(href: string): boolean {
+		const path = page.url.pathname;
+		const hash = page.url.hash;
 
-    if (href.startsWith("#")) {
-      return path === "/" && hash === href;
-    }
-    if (href === "/") {
-      return path === "/" && (hash === "" || hash === "#");
-    }
-    return path === href || path.startsWith(href + "/");
-  }
+		if (href.startsWith('#')) {
+			return path === '/' && hash === href;
+		}
+		if (href === '/') {
+			return path === '/' && (hash === '' || hash === '#');
+		}
+		return path === href || path.startsWith(href + '/');
+	}
 </script>
 
 <!-- Sticky wrapper -->

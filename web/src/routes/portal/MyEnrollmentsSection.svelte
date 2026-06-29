@@ -210,9 +210,18 @@
 	<!-- KPI Grid -->
 	<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		{#each kpis as kpi}
-			<div class="bg-white border border-slate-200 p-5 rounded-xl flex items-center gap-4 hover:shadow-xs transition duration-200">
+			<div
+				class="bg-white border border-slate-200 p-5 rounded-xl flex items-center gap-4 hover:shadow-xs transition duration-200"
+			>
 				<div class="w-12 h-12 rounded-lg {kpi.bgColor} flex items-center justify-center shrink-0">
-					<svg class="w-6 h-6 {kpi.iconColor}" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<svg
+						class="w-6 h-6 {kpi.iconColor}"
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
 						<path stroke-linecap="round" stroke-linejoin="round" d={kpi.icon} />
 					</svg>
 				</div>
@@ -229,9 +238,13 @@
 		<div class="p-5 border-b border-slate-100 flex items-center justify-between">
 			<div>
 				<h2 class="text-base font-bold font-serif text-[#0B1535]">My Registered Activities</h2>
-				<p class="text-[10px] font-semibold text-[#6B7280] uppercase tracking-widest mt-0.5">Academic Year 2025 - 2026</p>
+				<p class="text-[10px] font-semibold text-[#6B7280] uppercase tracking-widest mt-0.5">
+					Academic Year 2025 - 2026
+				</p>
 			</div>
-			<span class="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-150 px-2.5 py-1 rounded-full">
+			<span
+				class="text-xs font-semibold text-slate-500 bg-slate-50 border border-slate-150 px-2.5 py-1 rounded-full"
+			>
 				7 records
 			</span>
 		</div>
@@ -239,7 +252,9 @@
 		<div class="overflow-x-auto">
 			<table class="w-full text-left border-collapse">
 				<thead>
-					<tr class="bg-slate-50 border-b border-slate-150 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+					<tr
+						class="bg-slate-50 border-b border-slate-150 text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+					>
 						<th class="px-6 py-4">Activity Name</th>
 						<th class="px-6 py-4">Category</th>
 						<th class="px-6 py-4">Enrollment Date</th>
@@ -258,21 +273,41 @@
 							<td class="px-6 py-4 text-slate-550">{act.activityDate}</td>
 							<td class="px-6 py-4 text-center font-extrabold text-[#881B1B]">{act.credits}</td>
 							<td class="px-6 py-4">
-								<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border {getStatusClass(act.status)}">
+								<span
+									class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide border {getStatusClass(
+										act.status
+									)}"
+								>
 									{act.status}
 								</span>
 							</td>
 							<td class="px-6 py-4 text-right">
 								{#if act.action === 'details'}
-									<button class="inline-flex items-center justify-center border border-slate-250 hover:border-slate-800 text-slate-705 hover:bg-slate-900 hover:text-white px-3.5 py-2 rounded-lg text-xs font-bold transition duration-150 cursor-pointer">
-										<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-											<path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+									<button
+										class="inline-flex items-center justify-center border border-slate-250 hover:border-slate-800 text-slate-705 hover:bg-slate-900 hover:text-white px-3.5 py-2 rounded-lg text-xs font-bold transition duration-150 cursor-pointer"
+									>
+										<svg
+											class="w-3.5 h-3.5 mr-1.5"
+											fill="none"
+											stroke="currentColor"
+											stroke-width="2"
+											viewBox="0 0 24 24"
+										>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+											/>
+											<path
+												stroke-linecap="round"
+												stroke-linejoin="round"
+												d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+											/>
 										</svg>
 										View Details
 									</button>
 								{:else}
-									<button 
+									<button
 										onclick={() => {
 											if (act.action === 'upload') {
 												onUploadCertificateClick();
@@ -280,16 +315,39 @@
 												alert(`Download/View Certificate for ${act.name}`);
 											}
 										}}
-										class="inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-xs font-bold transition duration-150 cursor-pointer {act.action === 'upload' ? 'bg-[#881B1B] hover:bg-[#731717] text-white shadow-xs' : 'border border-slate-250 hover:border-slate-800 text-slate-705 hover:bg-slate-900 hover:text-white'}"
+										class="inline-flex items-center justify-center px-3.5 py-2 rounded-lg text-xs font-bold transition duration-150 cursor-pointer {act.action ===
+										'upload'
+											? 'bg-[#881B1B] hover:bg-[#731717] text-white shadow-xs'
+											: 'border border-slate-250 hover:border-slate-800 text-slate-705 hover:bg-slate-900 hover:text-white'}"
 									>
 										{#if act.action === 'upload'}
-											<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+											<svg
+												class="w-3.5 h-3.5 mr-1.5"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2.5"
+												viewBox="0 0 24 24"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+												/>
 											</svg>
 											Upload Certificate
 										{:else}
-											<svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+											<svg
+												class="w-3.5 h-3.5 mr-1.5"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="2"
+												viewBox="0 0 24 24"
+											>
+												<path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+												/>
 											</svg>
 											View Certificate
 										{/if}
@@ -311,20 +369,30 @@
 			<div class="bg-white border border-slate-200 p-6 rounded-xl shadow-xs">
 				<div class="border-b border-slate-100 pb-4 mb-5">
 					<h2 class="text-base font-bold font-serif text-[#0B1535]">Participation Journey</h2>
-					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{selectedJourneyActivity} • Tracking Status</p>
+					<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+						{selectedJourneyActivity} • Tracking Status
+					</p>
 				</div>
 
 				<div class="relative pl-6 border-l-2 border-slate-150 ml-3 space-y-6 py-2">
 					{#each journeySteps as step}
 						<div class="relative">
 							<!-- Timeline Indicator Dot -->
-							<div class="absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 bg-white flex items-center justify-center transition duration-200
+							<div
+								class="absolute -left-[31px] top-1 w-4 h-4 rounded-full border-2 bg-white flex items-center justify-center transition duration-200
 								{step.state === 'completed' ? 'border-[#0B1535] bg-[#0B1535]' : ''}
 								{step.state === 'current' ? 'border-[#881B1B] bg-white ring-4 ring-[#881B1B]/10' : ''}
 								{step.state === 'pending' ? 'border-slate-200' : ''}
-							">
+							"
+							>
 								{#if step.state === 'completed'}
-									<svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+									<svg
+										class="w-2.5 h-2.5 text-white"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="3"
+										viewBox="0 0 24 24"
+									>
 										<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
 									</svg>
 								{:else if step.state === 'current'}
@@ -335,12 +403,20 @@
 							<!-- Timeline Text -->
 							<div class="flex items-center justify-between gap-4">
 								<div>
-									<h4 class="text-xs font-bold {step.state === 'pending' ? 'text-slate-400' : 'text-[#0B1535]'}">{step.title}</h4>
+									<h4
+										class="text-xs font-bold {step.state === 'pending'
+											? 'text-slate-400'
+											: 'text-[#0B1535]'}"
+									>
+										{step.title}
+									</h4>
 									<p class="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">{step.desc}</p>
 								</div>
 
 								{#if step.state === 'current'}
-									<span class="bg-amber-50 text-amber-800 border border-amber-250 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider">
+									<span
+										class="bg-amber-50 text-amber-800 border border-amber-250 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider"
+									>
 										Current
 									</span>
 								{/if}
@@ -354,31 +430,86 @@
 			<div class="bg-white border border-slate-200 p-6 rounded-xl shadow-xs">
 				<div class="border-b border-slate-100 pb-4 mb-5">
 					<h2 class="text-base font-bold font-serif text-[#0B1535]">Upcoming Activities</h2>
-					<p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Enrolled and verified schedule</p>
+					<p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">
+						Enrolled and verified schedule
+					</p>
 				</div>
 
 				<div class="divide-y divide-slate-100">
 					{#each upcomingActivities as act}
 						<div class="flex items-start justify-between py-4 first:pt-0 last:pb-0 gap-4">
 							<div class="flex items-start gap-4">
-								<div class="w-10 h-10 rounded-lg bg-slate-50 border border-slate-150 flex items-center justify-center shrink-0">
-									<svg class="w-5 h-5 text-slate-450" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-										<path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+								<div
+									class="w-10 h-10 rounded-lg bg-slate-50 border border-slate-150 flex items-center justify-center shrink-0"
+								>
+									<svg
+										class="w-5 h-5 text-slate-450"
+										xmlns="http://www.w3.org/2000/svg"
+										fill="none"
+										viewBox="0 0 24 24"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path
+											stroke-linecap="round"
+											stroke-linejoin="round"
+											d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+										/>
 									</svg>
 								</div>
 								<div class="space-y-1">
 									<h4 class="text-xs font-bold text-[#0B1535]">{act.name}</h4>
-									<div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-[#6B7280]">
+									<div
+										class="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] text-[#6B7280]"
+									>
 										<span class="flex items-center">
-											<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+											<svg
+												class="w-3.5 h-3.5 mr-1"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+												/></svg
+											>
 											{act.date}
 										</span>
 										<span class="flex items-center">
-											<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+											<svg
+												class="w-3.5 h-3.5 mr-1"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+												/></svg
+											>
 											{act.time}
 										</span>
 										<span class="flex items-center">
-											<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+											<svg
+												class="w-3.5 h-3.5 mr-1"
+												fill="none"
+												stroke="currentColor"
+												viewBox="0 0 24 24"
+												><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+												/><path
+													stroke-linecap="round"
+													stroke-linejoin="round"
+													stroke-width="2"
+													d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+												/></svg
+											>
 											{act.location}
 										</span>
 									</div>
@@ -387,7 +518,9 @@
 
 							<div class="text-right flex flex-col items-end shrink-0">
 								<span class="text-xs font-extrabold text-[#881B1B]">{act.credits} Credits</span>
-								<span class="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-150 px-1.5 py-0.5 rounded-md mt-1.5 uppercase tracking-wide">
+								<span
+									class="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-150 px-1.5 py-0.5 rounded-md mt-1.5 uppercase tracking-wide"
+								>
 									{act.timeLeft}
 								</span>
 							</div>
@@ -403,7 +536,9 @@
 			<div class="bg-white border border-slate-200 p-6 rounded-xl shadow-xs">
 				<div class="border-b border-slate-100 pb-4 mb-5">
 					<h2 class="text-base font-bold font-serif text-[#0B1535]">Enrollment Credit Summary</h2>
-					<p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Credit milestones breakdown</p>
+					<p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">
+						Credit milestones breakdown
+					</p>
 				</div>
 
 				<div class="space-y-4">
@@ -414,7 +549,10 @@
 								<span class="font-extrabold text-[#0B1535]">{cat.credits} Credits</span>
 							</div>
 							<div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-								<div class="{cat.color} h-2 rounded-full transition-all duration-500" style="width: {(cat.credits / cat.max) * 100}%"></div>
+								<div
+									class="{cat.color} h-2 rounded-full transition-all duration-500"
+									style="width: {(cat.credits / cat.max) * 100}%"
+								></div>
 							</div>
 						</div>
 					{/each}
@@ -426,10 +564,15 @@
 							<span class="text-base font-extrabold text-[#881B1B]">118 / 200</span>
 						</div>
 						<div class="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-							<div class="bg-[#881B1B] h-3 rounded-full transition-all duration-500" style="width: 59%"></div>
+							<div
+								class="bg-[#881B1B] h-3 rounded-full transition-all duration-500"
+								style="width: 59%"
+							></div>
 						</div>
 						<div class="text-center">
-							<span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">59% Complete</span>
+							<span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider"
+								>59% Complete</span
+							>
 						</div>
 					</div>
 				</div>
@@ -439,14 +582,24 @@
 			<div class="bg-white border border-slate-200 p-6 rounded-xl shadow-xs">
 				<div class="border-b border-slate-100 pb-4 mb-5">
 					<h2 class="text-base font-bold font-serif text-[#0B1535]">Recent Enrollment Updates</h2>
-					<p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">Activity timeline logs</p>
+					<p class="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">
+						Activity timeline logs
+					</p>
 				</div>
 
 				<div class="space-y-4.5">
 					{#each recentUpdates as update}
 						<div class="flex items-start gap-3.5">
-							<div class="w-7.5 h-7.5 rounded-full {update.color} flex items-center justify-center shrink-0">
-								<svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+							<div
+								class="w-7.5 h-7.5 rounded-full {update.color} flex items-center justify-center shrink-0"
+							>
+								<svg
+									class="w-4.5 h-4.5"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="2"
+									viewBox="0 0 24 24"
+								>
 									<path stroke-linecap="round" stroke-linejoin="round" d={update.icon} />
 								</svg>
 							</div>
