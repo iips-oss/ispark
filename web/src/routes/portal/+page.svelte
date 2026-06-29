@@ -193,6 +193,8 @@
 	function triggerAction(actionName: string) {
 		if (actionName === 'Upload Certificate') {
 			isUploadModalOpen = true;
+		} else if (actionName === 'Browse Activities') {
+			currentTab = 'Activities';
 		} else {
 			alert(`Quick Action Triggered: ${actionName}`);
 		}
