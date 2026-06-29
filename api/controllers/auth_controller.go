@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/vinishawagh/ispark/api/config"
-	"github.com/vinishawagh/ispark/api/models"
-	"github.com/vinishawagh/ispark/api/utils"
+	"github.com/iips-oss/ispark/api/config"
+	"github.com/iips-oss/ispark/api/models"
+	"github.com/iips-oss/ispark/api/utils"
 )
 
 // Input schemas

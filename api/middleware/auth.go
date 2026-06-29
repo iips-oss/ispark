@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/vinishawagh/ispark/api/utils"
+	"github.com/iips-oss/ispark/api/utils"
 )
 
 // AuthRequired is a middleware that enforces authentication via JWT

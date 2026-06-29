@@ -2,8 +2,8 @@ package routes
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"github.com/vinishawagh/ispark/api/controllers"
-	"github.com/vinishawagh/ispark/api/middleware"
+	"github.com/iips-oss/ispark/api/controllers"
+	"github.com/iips-oss/ispark/api/middleware"
 )
 
 // SetupRoutes configures the endpoints for the API

@@ -27,9 +27,6 @@ WORKDIR /root/
 # Copy the pre-built binary file from the builder stage
 COPY --from=builder /app/main .
 
-# Copy env file if present (optional, usually overridden by docker-compose environment vars)
-COPY --from=builder /app/.env .
-
 # Export port
 EXPOSE 8080
 

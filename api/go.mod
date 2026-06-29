@@ -1,4 +1,4 @@
-module github.com/vinishawagh/ispark/api
+module github.com/iips-oss/ispark/api
 
 go 1.24
 

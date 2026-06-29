@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/vinishawagh/ispark/api/models"
+	"github.com/iips-oss/ispark/api/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
