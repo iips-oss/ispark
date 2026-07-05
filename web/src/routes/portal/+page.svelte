@@ -7,6 +7,7 @@
 	import ExtracurricularMarksheet from './ExtracurricularMarksheet.svelte';
 	import MyEnrollments from './MyEnrollments.svelte';
 	import MyCertificates from './MyCertificates.svelte';
+	import UploadCertificate from './UploadCertificate.svelte';
 
 	// Sidebar navigation items
 	const menuItems = [
@@ -1230,6 +1231,8 @@
 				<MyEnrollments onUploadCertificate={() => (isUploadModalOpen = true)} />
 			{:else if currentTab === 'My Certificates'}
 				<MyCertificates onTabChange={(tab) => (currentTab = tab)} onSelectForReupload={() => {}} />
+			{:else if currentTab === 'Upload Certificate'}
+				<UploadCertificate onBackToDashboard={() => (currentTab = 'Dashboard')} />
 			{:else}
 				<!-- Placeholder for under construction pages -->
 				<div
