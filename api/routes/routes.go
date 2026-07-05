@@ -37,6 +37,9 @@ func SetupRoutes(app *fiber.App) {
 	admin.Use(middleware.AuthRequired())
 	admin.Use(middleware.RoleRequired("admin"))
 
+	// Must change the password
+	admin.Post("admin/change-password", controllers.ChangePassword)
+
 	// Admin capabilities
 	admin.Get("/students", controllers.GetAllStudents)
 	admin.Get("/students/:roll", controllers.GetStudentDetail)
