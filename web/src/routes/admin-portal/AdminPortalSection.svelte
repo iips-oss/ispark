@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { onDestroy } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
-	
-	import { API_BASE_URL } from '$lib/config'; 
+
+	import { API_BASE_URL } from '$lib/config';
 
 	const formId = 'admin-login';
 
@@ -89,8 +90,17 @@
 
 			const data = await response.json();
 
-			if (!response.ok) {
-				throw new Error(data.error || 'Invalid Administrator ID or Password');
+			if (response.ok) {
+				const data = await response.json();
+				localStorage.setItem('admin_token', data.access_token);
+
+				// Check if the admin needs to reset their password
+				if (data.must_change_password) {
+					goto('/admin-portal/update');
+				} else {
+					loginSuccess = true;
+					setTimeout(() => goto('/admin-portal/dashboard'), 1000);
+				}
 			}
 
 			// Store the token and trigger success UI
@@ -98,14 +108,17 @@
 			loginSuccess = true;
 			failedAttempts = 0;
 			setTimeout(() => {
-			goto('/admin-portal/dashboard'); // Route where the console will be built
-		}, 1500);
+				goto('/admin-portal/dashboard'); // Route where the console will be built
+			}, 1500);
 		} catch (err) {
 			failedAttempts += 1;
 			if (failedAttempts >= 5) {
 				startLockout();
 			} else {
-				errorMsg = err instanceof Error ? err.message : `Invalid Administrator ID or Password. (Attempt ${failedAttempts} of 5)`;
+				errorMsg =
+					err instanceof Error
+						? err.message
+						: `Invalid Administrator ID or Password. (Attempt ${failedAttempts} of 5)`;
 			}
 		} finally {
 			submitting = false;
