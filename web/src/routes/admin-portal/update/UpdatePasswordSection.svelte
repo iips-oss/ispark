@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import { goto } from '$app/navigation';
+	import { API_BASE_URL } from '$lib/config';
 
 	// State variables (Svelte 5 runes)
 	let currentPassword = $state('');
@@ -43,19 +44,44 @@
 		{ id: 'special', label: 'One Special Character', met: hasSpecial }
 	]);
 
-	const handleSubmit = (event: SubmitEvent) => {
+	let errorMsg = $state('');
+
+	const handleSubmit = async (event: SubmitEvent) => {
 		event.preventDefault();
 		if (!isPasswordValid || !doPasswordsMatch || currentPassword.trim() === '') {
 			return;
 		}
 
 		submitting = true;
+		errorMsg = '';
 
-		// Simulate password update API call
-		setTimeout(() => {
-			submitting = false;
+		try {
+			const response = await fetch(`${API_BASE_URL}/api/admin/change-password`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${localStorage.getItem('admin_token')}`
+				},
+				body: JSON.stringify({
+					current_password: currentPassword,
+					new_password: newPassword,
+					confirm_password: confirmPassword
+				})
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || 'Failed to update password');
+			}
+
 			success = true;
-		}, 1500);
+		} catch (err) {
+			errorMsg =
+				err instanceof Error ? err.message : 'Failed to update password. Please try again.';
+		} finally {
+			submitting = false;
+		}
 	};
 
 	const handleCancelLogout = () => {

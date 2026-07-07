@@ -72,12 +72,15 @@
 
 	// Check if admin password is updated or not.
 	function routeAfterLogin(data) {
-		if (data.must_change_password) {
-			goto('/admin-portal/update');
-		} else {
-			loginSuccess = true;
-			setTimeout(() => goto('/admin-portal/dashboard'), 1000);
-		}
+		loginSuccess = true;
+
+		setTimeout(() => {
+			if (data.must_change_password) {
+				goto('/admin-portal/change-password');
+			} else {
+				goto('/admin-portal/dashboard');
+			}
+		}, 1000);
 	}
 
 	// Submit Handler

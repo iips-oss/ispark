@@ -57,7 +57,7 @@ func ChangePassword(c *fiber.Ctx) error {
 	if input.NewPassword != input.ConfirmPassword {
 		return errJSON(c, fiber.StatusBadRequest, "Passwords do not match")
 	}
-	adminID, ok := c.Locals("admin_id").(string)
+	adminID, ok := c.Locals("roll_no").(string)
 	if !ok || adminID == "" {
 		return errJSON(c, fiber.StatusUnauthorized, "Unauthorized")
 	}
