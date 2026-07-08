@@ -71,7 +71,7 @@
 	];
 
 	// Check if admin password is updated or not.
-	function routeAfterLogin(data: unknown) {
+	function routeAfterLogin(data: { must_change_password?: boolean }) {
 		loginSuccess = true;
 
 		// Persist the flag so the dashboard can guard itself against direct URL access
