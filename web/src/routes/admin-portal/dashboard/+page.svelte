@@ -18,7 +18,6 @@
 		}
 	});
 
-
 	// Sidebar menu items list for Admin Portal
 	const menuItems = [
 		{

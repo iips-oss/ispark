@@ -4,7 +4,7 @@
 	import UpdatePasswordSection from './UpdatePasswordSection.svelte';
 	import FooterSection from '../FooterSection.svelte';
 
-	let mode = $derived(page.url.searchParams.get('mode') === 'voluntary' ? 'voluntary' : 'forced');
+	let mode: 'voluntary' | 'forced' = $derived(page.url.searchParams.get('mode') === 'voluntary' ? 'voluntary' : 'forced');
 </script>
 
 <svelte:head>

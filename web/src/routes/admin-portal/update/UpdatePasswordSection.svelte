@@ -182,8 +182,8 @@
 						Security Policy
 					</h2>
 					<p class="text-xs text-red-800/80 leading-relaxed font-medium">
-					Temporary passwords issued by administrators expire after first use. All mentor accounts
-					must create a new password before continuing.
+						Temporary passwords issued by administrators expire after first use. All mentor accounts
+						must create a new password before continuing.
 					</p>
 				</div>
 			</section>
