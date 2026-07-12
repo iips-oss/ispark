@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
+	import { API_BASE_URL } from '$lib/config';
+
+	let token = localStorage.getItem('access_token') || '';
 
 	// Props using Svelte 5 runes
 	let {
@@ -146,7 +149,7 @@
 		errorMessage = '';
 	}
 
-	function handleSubmit(event: Event) {
+	async function handleSubmit(event: Event) {
 		event.preventDefault();
 		errorMessage = '';
 		successMessage = '';
@@ -160,32 +163,103 @@
 			errorMessage = 'Please upload a valid certificate file.';
 			return;
 		}
-		if (!certNumber || !issueDate || !participationType) {
-			errorMessage = 'Please fill in all required Certificate Information fields.';
+		if (!participationType) {
+			errorMessage = 'Please select a Participation Type.';
 			return;
 		}
 
-		// Success simulation
-		successMessage = 'Certificate submitted successfully for review!';
-		// Reset form
-		activityName = '';
-		activityCategory = '';
-		activityDate = '';
-		organizerName = '';
-		eventLevel = '';
-		certNumber = '';
-		issueDate = '';
-		participationType = '';
-		description = '';
-		removeFile();
+		isUploading = true;
 
-		setTimeout(() => {
-			successMessage = '';
-			onBackToDashboard();
-		}, 2000);
+		const formData = new FormData();
+		formData.append('activity_name', activityName);
+		formData.append('activity_category', activityCategory);
+		formData.append('activity_date', activityDate);
+		formData.append('organizer_name', organizerName);
+		formData.append('event_level', eventLevel);
+		formData.append('cert_number', certNumber);
+		formData.append('issue_date', issueDate);
+		formData.append('participation_type', participationType);
+		formData.append('description', description);
+		formData.append('certificate_file', selectedFile);
+
+		try {
+			const res = await fetch(`${API_BASE_URL}/api/student/certificates`, {
+				method: 'POST',
+				headers: {
+					Authorization: `Bearer ${token}`
+				},
+				body: formData
+			});
+
+			if (!res.ok) {
+				const errorData = await res.json();
+				throw new Error(errorData.error || 'Failed to upload certificate.');
+			}
+
+			successMessage = 'Certificate submitted successfully for review!';
+
+			// Clear local draft upon successful submission
+			localStorage.removeItem('certificate_draft');
+
+			// Reset form
+			activityName = '';
+			activityCategory = '';
+			activityDate = '';
+			organizerName = '';
+			eventLevel = '';
+			certNumber = '';
+			issueDate = '';
+			participationType = '';
+			description = '';
+			removeFile();
+
+			setTimeout(() => {
+				successMessage = '';
+				onBackToDashboard();
+			}, 2000);
+		} catch (err) {
+			console.error(err);
+			errorMessage =
+				err instanceof Error ? err.message : 'Error uploading certificate. Please try again.';
+		} finally {
+			isUploading = false;
+		}
 	}
 
+	// Load draft from localStorage on mount
+	$effect(() => {
+		const saved = localStorage.getItem('certificate_draft');
+		if (saved) {
+			try {
+				const draft = JSON.parse(saved);
+				activityName = draft.activityName || '';
+				activityCategory = draft.activityCategory || '';
+				activityDate = draft.activityDate || '';
+				organizerName = draft.organizerName || '';
+				eventLevel = draft.eventLevel || '';
+				certNumber = draft.certNumber || '';
+				issueDate = draft.issueDate || '';
+				participationType = draft.participationType || '';
+				description = draft.description || '';
+			} catch (e) {
+				console.error('Error parsing draft:', e);
+			}
+		}
+	});
+
 	function handleSaveDraft() {
+		const draft = {
+			activityName,
+			activityCategory,
+			activityDate,
+			organizerName,
+			eventLevel,
+			certNumber,
+			issueDate,
+			participationType,
+			description
+		};
+		localStorage.setItem('certificate_draft', JSON.stringify(draft));
 		successMessage = 'Draft saved successfully!';
 		setTimeout(() => {
 			successMessage = '';
@@ -485,27 +559,25 @@
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				<div class="flex flex-col gap-1.5">
 					<label for="cert-number" class="text-[11px] font-bold text-slate-700 tracking-wider"
-						>CERTIFICATE NUMBER *</label
+						>CERTIFICATE NUMBER</label
 					>
 					<input
 						id="cert-number"
 						type="text"
 						bind:value={certNumber}
-						placeholder="e.g. CERT-2025-001"
+						placeholder="e.g. CERT-2025-001 (Optional)"
 						class="px-3 py-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-[#0B1535] focus:ring-2 focus:ring-[#0B1535]/5 transition-all"
-						required
 					/>
 				</div>
 				<div class="flex flex-col gap-1.5">
 					<label for="issue-date" class="text-[11px] font-bold text-slate-700 tracking-wider"
-						>ISSUE DATE *</label
+						>ISSUE DATE</label
 					>
 					<input
 						id="issue-date"
 						type="date"
 						bind:value={issueDate}
 						class="px-3 py-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-800 focus:outline-none focus:border-[#0B1535] focus:ring-2 focus:ring-[#0B1535]/5 transition-all"
-						required
 					/>
 				</div>
 			</div>

@@ -1,11 +1,302 @@
 package controllers
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/iips-oss/ispark/api/config"
 	"github.com/iips-oss/ispark/api/models"
 	"github.com/iips-oss/ispark/api/utils"
 )
+
+// GetCertificates returns student's uploaded certificates
+func GetCertificates(c *fiber.Ctx) error {
+	rollNo := c.Locals("roll_no").(string)
+
+	var certificates []models.Certificate
+	if err := config.DB.Where("student_roll_no = ?", rollNo).Order("created_at desc").Find(&certificates).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch certificates",
+		})
+	}
+
+	return c.JSON(certificates)
+}
+
+// UploadCertificate uploads a new certificate (handles file upload + details)
+func UploadCertificate(c *fiber.Ctx) error {
+	rollNo := c.Locals("roll_no").(string)
+
+	activityName := c.FormValue("activity_name")
+	activityCategory := c.FormValue("activity_category")
+	activityDateStr := c.FormValue("activity_date")
+	organizerName := c.FormValue("organizer_name")
+	eventLevel := c.FormValue("event_level")
+	certNumber := c.FormValue("cert_number")
+	issueDateStr := c.FormValue("issue_date")
+	participationType := c.FormValue("participation_type")
+	description := c.FormValue("description")
+
+	if activityName == "" || participationType == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Required fields are missing",
+		})
+	}
+
+	// Parse dates
+	activityDate, err := time.Parse("2006-01-02", activityDateStr)
+	if err != nil || activityDate.IsZero() {
+		activityDate = time.Now()
+	}
+	var issueDate *time.Time
+	if issueDateStr != "" {
+		parsedDate, parseErr := time.Parse("2006-01-02", issueDateStr)
+		if parseErr == nil {
+			issueDate = &parsedDate
+		}
+	}
+
+	// Determine credits based on participation type and level
+	credits := 10 // baseline
+	switch participationType {
+	case "Winner", "1st Place":
+		credits = 20
+	case "Runner Up", "2nd Place", "3rd Place":
+		credits = 15
+	case "Participant":
+		credits = 10
+	case "Coordinator", "Organizer":
+		credits = 12
+	case "Volunteer":
+		credits = 8
+	}
+
+	// Adjust credits for level
+	switch eventLevel {
+	case "National":
+		credits += 5
+	case "International":
+		credits += 10
+	}
+
+	// Handle File Upload
+	file, err := c.FormFile("certificate_file")
+	var fileName, filePath string
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Certificate file is required",
+		})
+	}
+
+	// Ensure directory exists
+	uploadDir := "./uploads/certificates"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create upload directory",
+		})
+	}
+
+	// Save file with a unique name
+	fileName = fmt.Sprintf("%s_%d_%s", rollNo, time.Now().UnixNano(), file.Filename)
+	filePath = filepath.Join(uploadDir, fileName)
+	if err := c.SaveFile(file, filePath); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to save file",
+		})
+	}
+
+	cert := models.Certificate{
+		StudentRollNo:     rollNo,
+		ActivityName:      activityName,
+		ActivityCategory:  activityCategory,
+		ActivityDate:      activityDate,
+		OrganizerName:     organizerName,
+		EventLevel:        eventLevel,
+		CertNumber:        certNumber,
+		IssueDate:         issueDate,
+		ParticipationType: participationType,
+		Description:       description,
+		FileName:          fileName,
+		FilePath:          filePath,
+		Credits:           credits,
+		Status:            "Pending",
+	}
+
+	if err := config.DB.Create(&cert).Error; err != nil {
+		_ = os.Remove(filePath)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to save certificate record",
+		})
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"message":     "Certificate uploaded successfully",
+		"certificate": cert,
+	})
+}
+
+// getAcademicYearDateRange returns start and end date of the academic year
+func getAcademicYearDateRange(yearStr string) (time.Time, time.Time, error) {
+	var startYear int
+	var err error
+
+	if len(yearStr) >= 7 && yearStr[4] == '-' {
+		startYear, err = strconv.Atoi(yearStr[0:4])
+		if err != nil {
+			return time.Time{}, time.Time{}, err
+		}
+	} else {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid year format")
+	}
+	endYear := startYear + 1
+
+	startDate := time.Date(startYear, time.July, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(endYear, time.June, 30, 23, 59, 59, 999999999, time.UTC)
+
+	return startDate, endDate, nil
+}
+
+// getCurrentAcademicYearRange returns the current academic year dates
+func getCurrentAcademicYearRange() (time.Time, time.Time) {
+	now := time.Now()
+	var startYear int
+	if now.Month() >= time.July {
+		startYear = now.Year()
+	} else {
+		startYear = now.Year() - 1
+	}
+	startDate := time.Date(startYear, time.July, 1, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(startYear+1, time.June, 30, 23, 59, 59, 999999999, time.UTC)
+	return startDate, endDate
+}
+
+// GetLeaderboard returns the leaderboard sorted by total credits for a given academic year
+func GetLeaderboard(c *fiber.Ctx) error {
+	rollNo := c.Locals("roll_no").(string)
+	year := c.Query("year")
+
+	var startDate, endDate time.Time
+	var err error
+	if year != "" {
+		startDate, endDate, err = getAcademicYearDateRange(year)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid year format. Expected YYYY-YY (e.g., 2025-26)",
+			})
+		}
+	} else {
+		startDate, endDate = getCurrentAcademicYearRange()
+	}
+
+	type LeaderboardEntry struct {
+		RollNo     string `json:"roll_no"`
+		Name       string `json:"name"`
+		CourseName string `json:"course_name"`
+		Semester   int    `json:"semester"`
+		Points     int    `json:"points"`
+		IsSelf     bool   `json:"is_self"`
+	}
+
+	var entries []LeaderboardEntry
+
+	err = config.DB.Raw(`
+		SELECT
+			s.roll_no,
+			s.name,
+			s.course_name,
+			s.semester,
+			COALESCE(SUM(c.credits), 0) as points
+		FROM students s
+		LEFT JOIN certificates c ON c.student_roll_no = s.roll_no
+			AND c.status = 'Approved'
+			AND c.activity_date >= ?
+			AND c.activity_date <= ?
+		GROUP BY s.roll_no, s.name, s.course_name, s.semester
+		ORDER BY points DESC, s.name ASC
+	`, startDate, endDate).Scan(&entries).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch leaderboard",
+		})
+	}
+
+	// Mark the authenticated student
+	for i := range entries {
+		if entries[i].RollNo == rollNo {
+			entries[i].IsSelf = true
+		}
+	}
+
+	return c.JSON(entries)
+}
+
+// GetCategoryChampions returns the top student per activity category for a given academic year
+func GetCategoryChampions(c *fiber.Ctx) error {
+	year := c.Query("year")
+
+	var startDate, endDate time.Time
+	var err error
+	if year != "" {
+		startDate, endDate, err = getAcademicYearDateRange(year)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid year format. Expected YYYY-YY (e.g., 2025-26)",
+			})
+		}
+	} else {
+		startDate, endDate = getCurrentAcademicYearRange()
+	}
+
+	type ChampionResult struct {
+		Track   string `json:"track"`
+		RollNo  string `json:"roll_no"`
+		Name    string `json:"name"`
+		Credits int    `json:"credits"`
+	}
+
+	var champions []ChampionResult
+
+	err = config.DB.Raw(`
+		WITH CategoryCredits AS (
+			SELECT
+				UPPER(c.activity_category) AS track,
+				s.roll_no,
+				s.name,
+				SUM(c.credits) AS total_credits
+			FROM students s
+			JOIN certificates c ON c.student_roll_no = s.roll_no
+			WHERE c.status = 'Approved'
+			  AND c.activity_date >= ?
+			  AND c.activity_date <= ?
+			GROUP BY UPPER(c.activity_category), s.roll_no, s.name
+		),
+		RankedCategoryCredits AS (
+			SELECT
+				track,
+				roll_no,
+				name,
+				total_credits,
+				ROW_NUMBER() OVER (PARTITION BY track ORDER BY total_credits DESC, name ASC) as rn
+			FROM CategoryCredits
+		)
+		SELECT track, roll_no, name, total_credits as credits
+		FROM RankedCategoryCredits
+		WHERE rn = 1
+	`, startDate, endDate).Scan(&champions).Error
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch category champions",
+		})
+	}
+
+	return c.JSON(champions)
+}
 
 // GetActivities returns a list of activities
 func GetActivities(c *fiber.Ctx) error {
@@ -296,7 +587,6 @@ func GetDashboardStats(c *fiber.Ctx) error {
 			"error": "Failed to fetch recent activities",
 		})
 	}
-
 	return c.JSON(fiber.Map{
 		"activities_participated": activitiesCount,
 		"certificates_uploaded":   certificatesCount,

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { API_BASE_URL } from '$lib/config';
+
 	// Define interfaces
 	interface Student {
 		rank: string;
@@ -49,371 +51,204 @@
 		locked: boolean;
 	}
 
+	function getCurrentAcademicYear(): string {
+		const now = new Date();
+		const year = now.getFullYear();
+		const month = now.getMonth(); // 0-indexed (6 is July)
+		const startYear = month >= 6 ? year : year - 1;
+		const endYearShort = String(startYear + 1).slice(-2);
+		return `${startYear}-${endYearShort}`;
+	}
+
+	function getPreviousAcademicYear(): string {
+		const now = new Date();
+		const year = now.getFullYear();
+		const month = now.getMonth();
+		const startYear = month >= 6 ? year - 1 : year - 2;
+		const endYearShort = String(startYear + 1).slice(-2);
+		return `${startYear}-${endYearShort}`;
+	}
+
+	interface LeaderboardEntry {
+		roll_no: string;
+		name: string;
+		course_name: string;
+		semester: number;
+		points: number;
+		is_self: boolean;
+	}
+
+	interface ChampionEntry {
+		track: string;
+		roll_no: string;
+		name: string;
+		credits: number;
+	}
+
 	// Filter state for Academic Year
-	let selectedYear = $state('2025-26');
+	let selectedYear = $state(getCurrentAcademicYear());
 
-	// Mock Student Data (changes slightly based on Year to show interactivity)
-	const students2025: Student[] = [
-		{
-			rank: '01',
-			initials: 'AS',
-			name: 'Aarav Sharma',
-			course: 'Int. MCA',
-			sem: 6,
-			activities: 28,
-			credits: 145,
-			grade: 'O',
-			avatarBg: 'bg-amber-100 text-amber-800 border-amber-300'
-		},
-		{
-			rank: '02',
-			initials: 'PP',
-			name: 'Priya Patel',
-			course: 'Int. MCA',
-			sem: 6,
-			activities: 26,
-			credits: 138,
-			grade: 'O',
-			avatarBg: 'bg-purple-100 text-purple-800 border-purple-300'
-		},
-		{
-			rank: '03',
-			initials: 'DR',
-			name: 'Deepak Rathore',
-			course: 'Int. MCA',
-			sem: 5,
-			activities: 24,
-			credits: 130,
-			grade: 'A',
-			avatarBg: 'bg-orange-100 text-orange-800 border-orange-300'
-		},
-		{
-			rank: '04',
-			initials: 'RV',
-			name: 'Rahul Verma',
-			course: 'B.Tech CSE',
-			sem: 6,
-			activities: 24,
-			credits: 118,
-			grade: 'A',
-			isSelf: true,
-			avatarBg: 'bg-red-100 text-red-800 border-red-300'
-		},
-		{
-			rank: '05',
-			initials: 'SK',
-			name: 'Sneha Kulkarni',
-			course: 'B.Tech CSE',
-			sem: 6,
-			activities: 22,
-			credits: 112,
-			grade: 'A',
-			avatarBg: 'bg-teal-100 text-teal-800 border-teal-300'
-		},
-		{
-			rank: '06',
-			initials: 'AM',
-			name: 'Arjun Mehta',
-			course: 'MCA',
-			sem: 4,
-			activities: 20,
-			credits: 108,
-			grade: 'A',
-			avatarBg: 'bg-blue-100 text-blue-800 border-blue-300'
-		},
-		{
-			rank: '07',
-			initials: 'PD',
-			name: 'Pooja Desai',
-			course: 'MBA (MS)',
-			sem: 4,
-			activities: 19,
-			credits: 102,
-			grade: 'A',
-			avatarBg: 'bg-pink-100 text-pink-800 border-pink-300'
-		},
-		{
-			rank: '08',
-			initials: 'RJ',
-			name: 'Rohit Jaiswal',
-			course: 'B.Tech CSE',
-			sem: 5,
-			activities: 18,
-			credits: 96,
-			grade: 'B',
-			avatarBg: 'bg-indigo-100 text-indigo-800 border-indigo-300'
-		},
-		{
-			rank: '09',
-			initials: 'KN',
-			name: 'Kavya Nair',
-			course: 'Int. MCA',
-			sem: 4,
-			activities: 17,
-			credits: 88,
-			grade: 'B',
-			avatarBg: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300'
-		},
-		{
-			rank: '10',
-			initials: 'MS',
-			name: 'Manish Soni',
-			course: 'MCA',
-			sem: 6,
-			activities: 16,
-			credits: 82,
-			grade: 'B',
-			avatarBg: 'bg-emerald-100 text-emerald-800 border-emerald-300'
-		},
-		{
-			rank: '11',
-			initials: 'NT',
-			name: 'Nisha Trivedi',
-			course: 'MBA',
-			sem: 4,
-			activities: 14,
-			credits: 76,
-			grade: 'B',
-			avatarBg: 'bg-sky-100 text-sky-800 border-sky-300'
-		},
-		{
-			rank: '12',
-			initials: 'SG',
-			name: 'Sachin Gupta',
-			course: 'B.Tech IT',
-			sem: 5,
-			activities: 13,
-			credits: 71,
-			grade: 'B',
-			avatarBg: 'bg-slate-105 text-slate-800 border-slate-300'
+	let token = localStorage.getItem('access_token') || '';
+	let leaderboardData = $state<LeaderboardEntry[]>([]);
+	let championsData = $state<ChampionEntry[]>([]);
+
+	async function loadLeaderboard(year: string) {
+		try {
+			const res = await fetch(`${API_BASE_URL}/api/student/leaderboard?year=${year}`, {
+				headers: {
+					Authorization: `Bearer ${token}`
+				}
+			});
+			if (res.ok) {
+				leaderboardData = await res.json();
+			}
+		} catch (err) {
+			console.error('Error fetching leaderboard:', err);
 		}
-	];
+	}
 
-	const students2024: Student[] = [
-		{
-			rank: '01',
-			initials: 'PP',
-			name: 'Priya Patel',
-			course: 'Int. MCA',
-			sem: 4,
-			activities: 24,
-			credits: 128,
-			grade: 'A',
-			avatarBg: 'bg-purple-100 text-purple-800 border-purple-300'
-		},
-		{
-			rank: '02',
-			initials: 'AS',
-			name: 'Aarav Sharma',
-			course: 'Int. MCA',
-			sem: 4,
-			activities: 22,
-			credits: 122,
-			grade: 'A',
-			avatarBg: 'bg-amber-100 text-amber-800 border-amber-300'
-		},
-		{
-			rank: '03',
-			initials: 'SK',
-			name: 'Sneha Kulkarni',
-			course: 'B.Tech CSE',
-			sem: 4,
-			activities: 21,
-			credits: 115,
-			grade: 'A',
-			avatarBg: 'bg-teal-100 text-teal-800 border-teal-300'
-		},
-		{
-			rank: '04',
-			initials: 'RV',
-			name: 'Rahul Verma',
-			course: 'B.Tech CSE',
-			sem: 4,
-			activities: 18,
-			credits: 104,
-			grade: 'A',
-			isSelf: true,
-			avatarBg: 'bg-red-100 text-red-800 border-red-300'
-		},
-		{
-			rank: '05',
-			initials: 'DR',
-			name: 'Deepak Rathore',
-			course: 'Int. MCA',
-			sem: 3,
-			activities: 19,
-			credits: 101,
-			grade: 'A',
-			avatarBg: 'bg-orange-100 text-orange-800 border-orange-300'
-		},
-		{
-			rank: '06',
-			initials: 'PD',
-			name: 'Pooja Desai',
-			course: 'MBA (MS)',
-			sem: 2,
-			activities: 16,
-			credits: 92,
-			grade: 'B',
-			avatarBg: 'bg-pink-100 text-pink-800 border-pink-300'
-		},
-		{
-			rank: '07',
-			initials: 'RJ',
-			name: 'Rohit Jaiswal',
-			course: 'B.Tech CSE',
-			sem: 3,
-			activities: 15,
-			credits: 89,
-			grade: 'B',
-			avatarBg: 'bg-indigo-100 text-indigo-800 border-indigo-300'
-		},
-		{
-			rank: '08',
-			initials: 'AM',
-			name: 'Arjun Mehta',
-			course: 'MCA',
-			sem: 2,
-			activities: 14,
-			credits: 85,
-			grade: 'B',
-			avatarBg: 'bg-blue-100 text-blue-800 border-blue-300'
-		},
-		{
-			rank: '09',
-			initials: 'KN',
-			name: 'Kavya Nair',
-			course: 'Int. MCA',
-			sem: 2,
-			activities: 12,
-			credits: 78,
-			grade: 'B',
-			avatarBg: 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300'
-		},
-		{
-			rank: '10',
-			initials: 'MS',
-			name: 'Manish Soni',
-			course: 'MCA',
-			sem: 4,
-			activities: 11,
-			credits: 72,
-			grade: 'B',
-			avatarBg: 'bg-emerald-100 text-emerald-800 border-emerald-300'
-		},
-		{
-			rank: '11',
-			initials: 'NT',
-			name: 'Nisha Trivedi',
-			course: 'MBA',
-			sem: 2,
-			activities: 9,
-			credits: 65,
-			grade: 'B',
-			avatarBg: 'bg-sky-100 text-sky-800 border-sky-300'
-		},
-		{
-			rank: '12',
-			initials: 'SG',
-			name: 'Sachin Gupta',
-			course: 'B.Tech IT',
-			sem: 3,
-			activities: 8,
-			credits: 60,
-			grade: 'B',
-			avatarBg: 'bg-slate-105 text-slate-800 border-slate-300'
+	async function loadChampions(year: string) {
+		try {
+			const res = await fetch(`${API_BASE_URL}/api/student/leaderboard/champions?year=${year}`, {
+				headers: {
+					Authorization: `Bearer ${token}`
+				}
+			});
+			if (res.ok) {
+				championsData = await res.json();
+			}
+		} catch (err) {
+			console.error('Error fetching champions:', err);
 		}
-	];
+	}
 
-	// Derived state for the active list
-	let activeStudents = $derived(selectedYear === '2025-26' ? students2025 : students2024);
+	async function loadAllData(year: string) {
+		await Promise.all([loadLeaderboard(year), loadChampions(year)]);
+	}
+
+	$effect(() => {
+		if (selectedYear) {
+			loadAllData(selectedYear);
+		}
+	});
+
+	// Derived state for the active list from API
+	let activeStudents = $derived.by<Student[]>(() => {
+		return leaderboardData.map((item: LeaderboardEntry, idx: number) => {
+			const initials = item.name
+				.split(' ')
+				.map((n: string) => n[0])
+				.join('')
+				.substring(0, 2)
+				.toUpperCase();
+			const rankVal = idx + 1;
+			const rankStr = rankVal < 10 ? `0${rankVal}` : `${rankVal}`;
+
+			// Simple grade thresholds based on credits
+			let grade: 'O' | 'A' | 'B' = 'B';
+			if (item.points >= 120) grade = 'O';
+			else if (item.points >= 80) grade = 'A';
+
+			const colors = [
+				'bg-amber-100 text-amber-800 border-amber-300',
+				'bg-purple-100 text-purple-800 border-purple-300',
+				'bg-orange-100 text-orange-800 border-orange-300',
+				'bg-red-100 text-red-800 border-red-300',
+				'bg-teal-100 text-teal-800 border-teal-300',
+				'bg-blue-100 text-blue-800 border-blue-300'
+			];
+			const avatarBg = colors[idx % colors.length];
+
+			return {
+				rank: rankStr,
+				initials: initials,
+				name: item.name,
+				course: item.course_name,
+				sem: item.semester,
+				activities: Math.max(Math.round(item.points / 12), 1),
+				credits: item.points,
+				grade: grade,
+				isSelf: item.is_self,
+				avatarBg: avatarBg
+			};
+		});
+	});
 
 	// Derived Podium Students
-	let podiumFirst = $derived(activeStudents.find((s) => s.rank === '01')!);
-	let podiumSecond = $derived(activeStudents.find((s) => s.rank === '02')!);
-	let podiumThird = $derived(activeStudents.find((s) => s.rank === '03')!);
+	let podiumFirst = $derived(
+		activeStudents.find((s) => s.rank === '01') || {
+			name: '—',
+			credits: 0,
+			initials: '—',
+			avatarBg: 'bg-slate-100',
+			course: '',
+			sem: 0,
+			grade: 'B' as const
+		}
+	);
+	let podiumSecond = $derived(
+		activeStudents.find((s) => s.rank === '02') || {
+			name: '—',
+			credits: 0,
+			initials: '—',
+			avatarBg: 'bg-slate-100',
+			course: '',
+			sem: 0,
+			grade: 'B' as const
+		}
+	);
+	let podiumThird = $derived(
+		activeStudents.find((s) => s.rank === '03') || {
+			name: '—',
+			credits: 0,
+			initials: '—',
+			avatarBg: 'bg-slate-100',
+			course: '',
+			sem: 0,
+			grade: 'B' as const
+		}
+	);
 
 	// Derived Rahul Verma (YOU) credits to show dynamic Recognition Levels
-	let currentUserCredits = $derived(activeStudents.find((s) => s.isSelf)?.credits || 118);
+	let currentUserCredits = $derived(activeStudents.find((s) => s.isSelf)?.credits || 0);
 
-	// Category Champions Data
-	const champions2025: Champion[] = [
-		{
-			track: 'TECHNICAL',
-			name: 'Aarav Sharma',
-			credits: 52,
-			initials: 'AS',
-			avatarBg: 'bg-blue-50 text-blue-700 border-blue-200'
-		},
-		{
-			track: 'PUBLIC SPEAKING',
-			name: 'Priya Patel',
-			credits: 36,
-			initials: 'PP',
-			avatarBg: 'bg-purple-50 text-purple-700 border-purple-200'
-		},
-		{
-			track: 'RESEARCH',
-			name: 'Deepak Rathore',
-			credits: 28,
-			initials: 'DR',
-			avatarBg: 'bg-orange-50 text-orange-700 border-orange-200'
-		},
-		{
-			track: 'SPORTS',
-			name: 'Rohit Jaiswal',
-			credits: 24,
-			initials: 'RJ',
-			avatarBg: 'bg-teal-50 text-teal-700 border-teal-200'
-		},
-		{
-			track: 'SOCIAL SERVICE',
-			name: 'Pooja Desai',
-			credits: 22,
-			initials: 'PD',
-			avatarBg: 'bg-rose-50 text-rose-700 border-rose-200'
-		}
-	];
+	// Derived state for the active champions from API
+	let activeChampions = $derived.by<Champion[]>(() => {
+		return championsData.map((item: ChampionEntry) => {
+			const initials = item.name
+				.split(' ')
+				.map((n: string) => n[0])
+				.join('')
+				.substring(0, 2)
+				.toUpperCase();
 
-	const champions2024: Champion[] = [
-		{
-			track: 'TECHNICAL',
-			name: 'Priya Patel',
-			credits: 42,
-			initials: 'PP',
-			avatarBg: 'bg-purple-50 text-purple-700 border-purple-200'
-		},
-		{
-			track: 'PUBLIC SPEAKING',
-			name: 'Aarav Sharma',
-			credits: 32,
-			initials: 'AS',
-			avatarBg: 'bg-blue-50 text-blue-700 border-blue-200'
-		},
-		{
-			track: 'RESEARCH',
-			name: 'Sneha Kulkarni',
-			credits: 25,
-			initials: 'SK',
-			avatarBg: 'bg-teal-50 text-teal-700 border-teal-200'
-		},
-		{
-			track: 'SPORTS',
-			name: 'Rahul Verma',
-			credits: 24,
-			initials: 'RV',
-			avatarBg: 'bg-red-50 text-red-700 border-red-200'
-		},
-		{
-			track: 'SOCIAL SERVICE',
-			name: 'Pooja Desai',
-			credits: 18,
-			initials: 'PD',
-			avatarBg: 'bg-rose-50 text-rose-700 border-rose-200'
-		}
-	];
+			let avatarBg = 'bg-blue-50 text-blue-700 border-blue-200';
+			const trackUpper = item.track.toUpperCase();
+			if (trackUpper === 'TECHNICAL') {
+				avatarBg = 'bg-blue-50 text-blue-700 border-blue-200';
+			} else if (trackUpper === 'PUBLIC SPEAKING') {
+				avatarBg = 'bg-purple-50 text-purple-700 border-purple-200';
+			} else if (trackUpper === 'RESEARCH') {
+				avatarBg = 'bg-orange-50 text-orange-700 border-orange-200';
+			} else if (trackUpper === 'SPORTS') {
+				avatarBg = 'bg-teal-50 text-teal-700 border-teal-200';
+			} else if (trackUpper === 'SOCIAL SERVICE') {
+				avatarBg = 'bg-rose-50 text-rose-700 border-rose-200';
+			} else if (trackUpper === 'CULTURAL') {
+				avatarBg = 'bg-pink-50 text-pink-700 border-pink-200';
+			} else if (trackUpper === 'LEADERSHIP') {
+				avatarBg = 'bg-amber-50 text-amber-700 border-amber-200';
+			}
 
-	let activeChampions = $derived(selectedYear === '2025-26' ? champions2025 : champions2024);
+			return {
+				track: item.track,
+				name: item.name,
+				credits: item.credits,
+				initials: initials,
+				avatarBg: avatarBg
+			};
+		});
+	});
 
 	// Recognition Levels calculation based on current user credits
 	let recognitionLevels = $derived<RecognitionLevel[]>([
@@ -550,6 +385,11 @@
 					badge: 'bg-blue-50 text-blue-700 border-blue-200',
 					underline: 'border-blue-500'
 				};
+			default:
+				return {
+					badge: 'bg-slate-50 text-slate-700 border-slate-200',
+					underline: 'border-slate-500'
+				};
 		}
 	}
 </script>
@@ -574,8 +414,8 @@
 					bind:value={selectedYear}
 					class="appearance-none pl-3 pr-8 py-1.5 bg-slate-50 border border-slate-205 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-[#881B1B] cursor-pointer transition-colors"
 				>
-					<option value="2025-26">2025-26</option>
-					<option value="2024-25">2024-25</option>
+					<option value={getCurrentAcademicYear()}>{getCurrentAcademicYear()}</option>
+					<option value={getPreviousAcademicYear()}>{getPreviousAcademicYear()}</option>
 				</select>
 				<span
 					class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none"
