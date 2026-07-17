@@ -177,11 +177,7 @@
 		Math.min(Math.round((totalCreditsEarned / 200) * 100), 100)
 	);
 
-	// Recent updates timeline data derived from actual registered activities, or falling back to stats
-	// Type/color language is kept consistent with the status pills used elsewhere in this file:
-	// emerald = Completed/Verified, amber = Pending Verification, rose = Rejected, blue = Registered
-
-	// Recent updates timeline data derived from actual registered activities, or falling back to stats
+	
 	const recentUpdates: RecentUpdate[] = $derived.by(() => {
 		if (registeredActivities.length > 0) {
 			return registeredActivities.slice(0, 3).map((act) => {
