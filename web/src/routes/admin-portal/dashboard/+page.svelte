@@ -28,7 +28,7 @@
 		},
 		{
 			name: 'Student Management',
-			icon: 'M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0 1 10.089 21c-2.316 0-4.445-.69-6.22-1.879v-.003a4.125 4.125 0 0 1 7.533-2.493M15 19.128v-.003c0-1.112-.285-2.16-.786-3.07M14.214 16.058A9.396 9.396 0 0 0 10.089 15c-1.47 0-2.854.34-4.082.945M14.214 16.058a9.386 9.386 0 0 1 0 3.07M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5'
+			icon: 'M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM22 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75'
 		},
 		{
 			name: 'Certificate Verification',
@@ -277,12 +277,12 @@
 			class="bg-white border-b border-slate-200 h-[72px] flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30"
 		>
 			<!-- Mobile sidebar toggle -->
-			<div class="flex items-center gap-3">
+			<div class="flex items-center gap-3 min-w-0 flex-1">
 				<button
 					onclick={toggleMobileSidebar}
 					aria-label="Open sidebar"
-					class="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none"
-				>
+					class="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none shrink-0"
+					>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -290,17 +290,15 @@
 						stroke="currentColor"
 						stroke-width="2"
 						class="w-6 h-6"
-					>
+				    >
 						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
 					</svg>
 				</button>
-				<div>
-					<h1 class="text-lg sm:text-xl font-bold text-slate-900 font-serif leading-tight">
+				<div class="min-w-0">
+					<h1 class="text-sm sm:text-xl font-bold text-slate-900 font-serif leading-tight whitespace-nowrap truncate">
 						{currentTab === 'Dashboard' ? 'Welcome Back, Admin!' : currentTab}
 					</h1>
-					<p
-						class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5"
-					>
+					<p class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5 truncate">
 						Tuesday, 23 June 2026
 					</p>
 				</div>

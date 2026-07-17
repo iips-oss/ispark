@@ -384,7 +384,7 @@
 	/>
 {:else}
 	<!-- ── Stat Cards ──────────────────────────────────────────────────────────── -->
-	<section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+	<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 		<!-- Total Students -->
 		<div
 			class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
@@ -403,7 +403,7 @@
 						<path
 							stroke-linecap="round"
 							stroke-linejoin="round"
-							d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0 1 10.089 21c-2.316 0-4.445-.69-6.22-1.879v-.003a4.125 4.125 0 0 1 7.533-2.493M15 19.128v-.003c0-1.112-.285-2.16-.786-3.07M14.214 16.058A9.396 9.396 0 0 0 10.089 15c-1.47 0-2.854.34-4.082.945M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+							d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0M18 8.25a3 3 0 110 6M21.75 20.25a5.25 5.25 0 00-3.75-5.03"
 						/>
 					</svg>
 				</div>

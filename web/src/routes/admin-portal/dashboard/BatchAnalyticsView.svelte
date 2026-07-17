@@ -182,95 +182,164 @@
 
 <div class="space-y-6">
 	<!-- ================= Summary cards ================= -->
-	<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-		<div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-			<div class="w-10 h-10 rounded-lg bg-[#881B1B]/10 flex items-center justify-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-					class="w-5 h-5 text-[#881B1B]"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0"
-					/>
-				</svg>
+	<section
+		class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+		aria-label="Batch statistics overview"
+	>
+		<!-- Card 1: Assigned Batches -->
+		<div
+			class="h-[130px] bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow"
+		>
+			<div class="flex items-center justify-between">
+				<span class="text-2xl font-bold font-serif text-slate-900">
+					{summary.assignedBatches}
+				</span>
+
+				<div class="p-2.5 rounded-lg bg-rose-50 text-[#881B1B] border border-rose-100">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="2"
+						stroke="currentColor"
+						class="w-5 h-5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0"
+						/>
+					</svg>
+				</div>
 			</div>
-			<p class="mt-3 text-2xl font-bold font-serif text-slate-900">{summary.assignedBatches}</p>
-			<p class="mt-1 text-xs font-bold text-slate-700">Assigned Batches</p>
+
+			<div class="mt-2">
+				<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+					Assigned Batches
+				</h3>
+
+				<span class="text-[11px] font-bold text-[#881B1B] mt-1 block">
+					Currently under mentorship
+				</span>
+			</div>
 		</div>
 
-		<div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-			<div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-					class="w-5 h-5 text-blue-600"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A11.386 11.386 0 0110.089 21c-2.316 0-4.445-.69-6.22-1.879v-.003a4.125 4.125 0 017.533-2.493M15 19.128v-.003c0-1.112-.285-2.16-.786-3.07M14.214 16.058A9.396 9.396 0 0010.089 15c-1.47 0-2.854.34-4.082.945M14.214 16.058a9.386 9.386 0 010 3.07M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-					/>
-				</svg>
+		<!-- Card 2: Total Students -->
+		<div
+			class="h-[130px] bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow"
+		>
+			<div class="flex items-center justify-between">
+				<span class="text-2xl font-bold font-serif text-slate-900">
+					{summary.totalStudents}
+				</span>
+
+				<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="2"
+						stroke="currentColor"
+						class="w-5 h-5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.25a7.5 7.5 0 0115 0M18 8.25a3 3 0 110 6M21.75 20.25a5.25 5.25 0 00-3.75-5.03"
+						/>
+					</svg>
+				</div>
 			</div>
-			<p class="mt-3 text-2xl font-bold font-serif text-slate-900">{summary.totalStudents}</p>
-			<p class="mt-1 text-xs font-bold text-slate-700">Total Students</p>
-			<p class="text-xs text-slate-400">Across assigned batches</p>
+
+			<div class="mt-2">
+				<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+					Total Students
+				</h3>
+
+				<span class="text-[11px] font-bold text-blue-600 mt-1 block">
+					Across assigned batches
+				</span>
+			</div>
 		</div>
 
-		<div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-			<div class="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-					class="w-5 h-5 text-emerald-600"
+		<!-- Card 3: Compliant Students -->
+		<div
+			class="h-[130px] bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow"
+		>
+			<div class="flex items-center justify-between">
+				<span class="text-2xl font-bold font-serif text-slate-900">
+					{summary.compliantStudents}
+				</span>
+
+				<div
+					class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100"
 				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					/>
-				</svg>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="2"
+						stroke="currentColor"
+						class="w-5 h-5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+						/>
+					</svg>
+				</div>
 			</div>
-			<p class="mt-3 text-2xl font-bold font-serif text-slate-900">{summary.compliantStudents}</p>
-			<p class="mt-1 text-xs font-bold text-slate-700">Compliant Students</p>
-			<p class="text-xs text-slate-400">Completed semester requirements</p>
+
+			<div class="mt-2">
+				<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+					Compliant Students
+				</h3>
+
+				<span class="text-[11px] leading-4 font-bold text-emerald-600 mt-1 block">
+					Completed semester requirements
+				</span>
+			</div>
 		</div>
 
-		<div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-			<div class="w-10 h-10 rounded-lg bg-rose-50 flex items-center justify-center">
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-					class="w-5 h-5 text-[#881B1B]"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
-					/>
-				</svg>
-			</div>
-			<p class="mt-3 text-2xl font-bold font-serif text-[#881B1B]">{summary.defaulters}</p>
-			<p class="mt-1 text-xs font-bold text-slate-700">Defaulters</p>
-			<p class="text-xs text-slate-400">Require mentor intervention</p>
-		</div>
-	</div>
+		<!-- Card 4: Defaulters -->
+		<div
+			class="h-[130px] bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow"
+		>
+			<div class="flex items-center justify-between">
+				<span class="text-2xl font-bold font-serif text-slate-900">
+					{summary.defaulters}
+				</span>
 
+				<div class="p-2.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-100">
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke-width="2"
+						stroke="currentColor"
+						class="w-5 h-5"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+						/>
+					</svg>
+				</div>
+			</div>
+
+			<div class="mt-2">
+				<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+					Defaulters
+				</h3>
+
+				<span class="text-[11px] font-bold text-rose-600 mt-1 block">
+					Require mentor intervention
+				</span>
+			</div>
+		</div>
+	</section>
 	<!-- ================= Batch performance table ================= -->
 	<div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 		<div
