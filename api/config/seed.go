@@ -61,8 +61,46 @@ func SeedDevData() {
 		return
 	}
 
+	if err := seedTracks(); err != nil {
+		log.Printf("Seeding tracks failed: %v", err)
+		return
+	}
+
 	log.Printf("Demo data ready: %d students, %d activities. Every account's password is %q.",
 		len(students), len(activities), DevPassword)
+}
+
+// ---------------------------------------------------------------------------
+// Tracks
+// ---------------------------------------------------------------------------
+
+// seedTracks loads the default activity tracks shown on the super admin Track
+// Management screen. Description and status are seeded via Attrs so they are
+// only written on first create — a super admin's later edits survive a re-seed.
+func seedTracks() error {
+	tracks := []models.Track{
+		{
+			Name:        "Personality Development",
+			Description: "Activities focused on personal growth, communication, and leadership skills.",
+			Status:      "Active",
+		},
+		{
+			Name:        "Skill Building",
+			Description: "Technical and vocational activities that develop practical competencies.",
+			Status:      "Active",
+		},
+	}
+
+	for _, track := range tracks {
+		var existing models.Track
+		if err := DB.Where(models.Track{Name: track.Name}).
+			Attrs(models.Track{Description: track.Description, Status: track.Status}).
+			FirstOrCreate(&existing).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ---------------------------------------------------------------------------
