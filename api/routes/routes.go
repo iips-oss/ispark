@@ -72,4 +72,24 @@ func SetupRoutes(app *fiber.App) {
 	platform.Put("/settings", controllers.UpdatePlatformSettings)
 	platform.Put("/settings/:key", controllers.UpdatePlatformSetting)
 
+	// Reports center
+	platform.Get("/reports/summary", controllers.GetReportsSummary)
+	platform.Get("/reports/templates", controllers.GetReportTemplates)
+	platform.Get("/reports/export/counts", controllers.GetExportCounts)
+	platform.Get("/reports/export", controllers.ExportData)
+	platform.Get("/reports/audit", controllers.GetReportAuditLog)
+
+	// Reports center: scheduled reports
+	platform.Get("/reports/scheduled", controllers.GetScheduledReports)
+	platform.Post("/reports/scheduled", controllers.CreateScheduledReport)
+	platform.Put("/reports/scheduled/:id", controllers.UpdateScheduledReport)
+	platform.Delete("/reports/scheduled/:id", controllers.DeleteScheduledReport)
+
+	// Reports center: generated reports
+	platform.Get("/reports", controllers.GetGeneratedReports)
+	platform.Post("/reports/generate", controllers.GenerateReport)
+	platform.Get("/reports/:id", controllers.GetReportDetail)
+	platform.Get("/reports/:id/download", controllers.DownloadReport)
+	platform.Delete("/reports/:id", controllers.DeleteReport)
+
 }
