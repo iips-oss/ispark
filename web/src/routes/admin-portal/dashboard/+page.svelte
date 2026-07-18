@@ -282,7 +282,7 @@
 					onclick={toggleMobileSidebar}
 					aria-label="Open sidebar"
 					class="lg:hidden p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus:outline-none shrink-0"
-					>
+				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -290,15 +290,19 @@
 						stroke="currentColor"
 						stroke-width="2"
 						class="w-6 h-6"
-				    >
+					>
 						<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
 					</svg>
 				</button>
 				<div class="min-w-0">
-					<h1 class="text-sm sm:text-xl font-bold text-slate-900 font-serif leading-tight whitespace-nowrap truncate">
+					<h1
+						class="text-sm sm:text-xl font-bold text-slate-900 font-serif leading-tight whitespace-nowrap truncate"
+					>
 						{currentTab === 'Dashboard' ? 'Welcome Back, Admin!' : currentTab}
 					</h1>
-					<p class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5 truncate">
+					<p
+						class="text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider mt-0.5 truncate"
+					>
 						Tuesday, 23 June 2026
 					</p>
 				</div>

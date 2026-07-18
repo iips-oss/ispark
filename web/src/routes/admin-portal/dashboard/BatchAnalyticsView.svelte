@@ -271,9 +271,7 @@
 					{summary.compliantStudents}
 				</span>
 
-				<div
-					class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100"
-				>
+				<div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100">
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
 						fill="none"
@@ -330,9 +328,7 @@
 			</div>
 
 			<div class="mt-2">
-				<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-					Defaulters
-				</h3>
+				<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Defaulters</h3>
 
 				<span class="text-[11px] font-bold text-rose-600 mt-1 block">
 					Require mentor intervention
