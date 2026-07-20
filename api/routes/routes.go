@@ -57,10 +57,16 @@ func SetupRoutes(app *fiber.App) {
 	// Must change the password
 	admin.Post("/change-password", controllers.AdminChangePassword)
 
-	admin.Get("/profile", controllers.GetAdminProfile)
-	admin.Put("/profile", controllers.UpdateAdminProfile)
+	// Admin Portal Dashboard
+	admin.Get("/dashboard/stats", controllers.GetAdminDashboardStats)
+	admin.Get("/dashboard/recent-activities", controllers.GetRecentActivities)
+
 	admin.Get("/students", controllers.GetAllStudents)
 	admin.Get("/students/:roll", controllers.GetStudentDetail)
+	admin.Get("/students/:roll/observations", controllers.GetMentorObservations)
+	admin.Post("/students/:roll/observations", controllers.AddMentorObservation)
+	admin.Put("/students/:roll/observations/:id", controllers.EditMentorObservation)
+	admin.Post("/students/:roll/notice", controllers.SendStudentNotice)
 
 	// Platform-wide routes, super admin only
 	platform := admin.Group("/platform", middleware.RoleRequired("superadmin"))
@@ -73,13 +79,5 @@ func SetupRoutes(app *fiber.App) {
 	platform.Get("/settings", controllers.GetPlatformSettings)
 	platform.Put("/settings", controllers.UpdatePlatformSettings)
 	platform.Put("/settings/:key", controllers.UpdatePlatformSetting)
-
-	// Track management
-	platform.Get("/tracks/stats", controllers.GetTrackStats)
-	platform.Get("/tracks", controllers.GetTracks)
-	platform.Post("/tracks", controllers.CreateTrack)
-	platform.Get("/tracks/:id", controllers.GetTrack)
-	platform.Put("/tracks/:id", controllers.UpdateTrack)
-	platform.Delete("/tracks/:id", controllers.DeleteTrack)
 
 }
