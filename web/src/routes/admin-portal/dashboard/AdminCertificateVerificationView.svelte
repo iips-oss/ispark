@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
+	import { onMount } from 'svelte';
+	import { API_BASE_URL } from '$lib/config';
 
 	// ── Types ──────────────────────────────────────────────────────────────────
 	type CertStatus = 'Pending' | 'Approved' | 'Rejected';
@@ -18,192 +20,53 @@
 		remarks: string;
 	}
 
-	// ── Mock Data ──────────────────────────────────────────────────────────────
-	let certificates = $state<Certificate[]>([
-		{
-			id: 'CERT-2041',
-			student: 'Priya Sharma',
-			regNo: 'EN22001',
-			name: 'National-Level Hackathon',
-			type: 'Competition',
-			submittedOn: '20 Jun 2025',
-			status: 'Pending',
-			priority: true,
-			relatedActivity: 'TechFest 2025',
-			creditsRequested: 4,
-			remarks:
-				'This certificate was awarded for active participation and outstanding performance in the respective event. I respectfully request approval for extracurricular credit under the iSPARC portal guidelines.'
-		},
-		{
-			id: 'CERT-2040',
-			student: 'Arjun Mehta',
-			regNo: 'EN22014',
-			name: 'Python Programming Course',
-			type: 'Course',
-			submittedOn: '27 Jun 2025',
-			status: 'Approved',
-			priority: false,
-			relatedActivity: 'Online Learning',
-			creditsRequested: 3,
-			remarks: 'Completed an 8-week certified online programming course with a final score of 92%.'
-		},
-		{
-			id: 'CERT-2039',
-			student: 'Kavya Nair',
-			regNo: 'EN22008',
-			name: 'Leadership Summit Participation',
-			type: 'Seminar',
-			submittedOn: '18 Jun 2025',
-			status: 'Approved',
-			priority: false,
-			relatedActivity: 'Leadership Program',
-			creditsRequested: 3,
-			remarks: 'Attended a two-day national leadership summit as a delegate representative.'
-		},
-		{
-			id: 'CERT-2038',
-			student: 'Rohan Verma',
-			regNo: 'EN23009',
-			name: 'Sports Achievement – District',
-			type: 'Sports',
-			submittedOn: '15 Jun 2025',
-			status: 'Pending',
-			priority: true,
-			relatedActivity: 'Inter-College Sports',
-			creditsRequested: 5,
-			remarks: 'Secured first position at the district-level athletics championship.'
-		},
-		{
-			id: 'CERT-2037',
-			student: 'Sneha Iyer',
-			regNo: 'EN22015',
-			name: 'Cultural Fest – Best Performer',
-			type: 'Cultural',
-			submittedOn: '12 Jun 2025',
-			status: 'Rejected',
-			priority: false,
-			relatedActivity: 'Annual Cultural Fest',
-			creditsRequested: 4,
-			remarks: 'Certificate image was unclear and event authorisation could not be verified.'
-		},
-		{
-			id: 'CERT-2036',
-			student: 'Dev Patel',
-			regNo: 'EN23014',
-			name: 'Research Paper Presentation',
-			type: 'Research',
-			submittedOn: '10 Jun 2025',
-			status: 'Pending',
-			priority: false,
-			relatedActivity: 'National Conference',
-			creditsRequested: 6,
-			remarks: 'Presented a peer-reviewed research paper at a national-level academic conference.'
-		},
-		{
-			id: 'CERT-2035',
-			student: 'Ananya Singh',
-			regNo: 'EN23003',
-			name: 'Community Service Certificate',
-			type: 'Service',
-			submittedOn: '08 Jun 2025',
-			status: 'Pending',
-			priority: false,
-			relatedActivity: 'NSS Camp',
-			creditsRequested: 4,
-			remarks: 'Completed 40 hours of community service during the annual NSS special camp.'
-		},
-		{
-			id: 'CERT-2034',
-			student: 'Meera Krishnan',
-			regNo: 'EN23021',
-			name: 'Workshop on AI Ethics',
-			type: 'Workshop',
-			submittedOn: '05 Jun 2025',
-			status: 'Approved',
-			priority: false,
-			relatedActivity: 'Tech Workshop',
-			creditsRequested: 2,
-			remarks: 'Participated in a hands-on workshop covering responsible and ethical AI practices.'
-		},
-		{
-			id: 'CERT-2033',
-			student: 'Karan Joshi',
-			regNo: 'EN22011',
-			name: 'Blood Donation Certificate',
-			type: 'Service',
-			submittedOn: '02 Jun 2025',
-			status: 'Approved',
-			priority: false,
-			relatedActivity: 'Red Cross Drive',
-			creditsRequested: 2,
-			remarks: 'Voluntarily donated blood at the institute-organised Red Cross donation drive.'
-		},
-		{
-			id: 'CERT-2032',
-			student: 'Aditya Rao',
-			regNo: 'EN22019',
-			name: 'Web Development Bootcamp',
-			type: 'Course',
-			submittedOn: '28 May 2025',
-			status: 'Pending',
-			priority: false,
-			relatedActivity: 'Skill Program',
-			creditsRequested: 3,
-			remarks: 'Completed an intensive full-stack web development bootcamp with a capstone project.'
-		},
-		{
-			id: 'CERT-2031',
-			student: 'Nisha Gupta',
-			regNo: 'EN23018',
-			name: 'State Debate Championship',
-			type: 'Competition',
-			submittedOn: '25 May 2025',
-			status: 'Pending',
-			priority: true,
-			relatedActivity: 'Debate League',
-			creditsRequested: 5,
-			remarks: 'Reached the finals of the state-level inter-university debate championship.'
-		},
-		{
-			id: 'CERT-2030',
-			student: 'Varun Nair',
-			regNo: 'EN22022',
-			name: 'Robotics Seminar',
-			type: 'Seminar',
-			submittedOn: '22 May 2025',
-			status: 'Approved',
-			priority: false,
-			relatedActivity: 'Robotics Club',
-			creditsRequested: 3,
-			remarks: 'Attended and volunteered at a two-day seminar on autonomous robotics systems.'
-		},
-		{
-			id: 'CERT-2029',
-			student: 'Isha Reddy',
-			regNo: 'EN23027',
-			name: 'Yoga & Wellness Workshop',
-			type: 'Workshop',
-			submittedOn: '20 May 2025',
-			status: 'Pending',
-			priority: false,
-			relatedActivity: 'Wellness Program',
-			creditsRequested: 2,
-			remarks: 'Completed a certified workshop on yoga, mindfulness and student wellness.'
-		},
-		{
-			id: 'CERT-2028',
-			student: 'Manav Shah',
-			regNo: 'EN22030',
-			name: 'City Marathon Participation',
-			type: 'Sports',
-			submittedOn: '18 May 2025',
-			status: 'Rejected',
-			priority: false,
-			relatedActivity: 'City Marathon',
-			creditsRequested: 3,
-			remarks: 'Participation record could not be matched with the official event registry.'
+	interface RawCert {
+		id: number | string;
+		student?: { name?: string };
+		student_roll_no: string;
+		activity_name: string;
+		activity_category: string;
+		created_at: string;
+		status: CertStatus;
+		credits: number;
+		description?: string;
+	}
+
+	let certificates = $state<Certificate[]>([]);
+
+	onMount(async () => {
+		try {
+			const token = localStorage.getItem('admin_token');
+			if (!token) return;
+			const res = await fetch(`${API_BASE_URL}/api/admin/certificates`, {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			if (res.ok) {
+				const data = await res.json();
+				if (data.certificates) {
+					certificates = data.certificates.map((c: RawCert) => ({
+						id: String(c.id),
+						student: c.student?.name || 'Unknown',
+						regNo: c.student_roll_no,
+						name: c.activity_name,
+						type: c.activity_category,
+						submittedOn: new Date(c.created_at).toLocaleDateString('en-GB', {
+							day: '2-digit',
+							month: 'short',
+							year: 'numeric'
+						}),
+						status: c.status,
+						priority: false,
+						relatedActivity: c.activity_name,
+						creditsRequested: c.credits,
+						remarks: c.description || ''
+					}));
+				}
+			}
+		} catch (e) {
+			console.error('Failed to load certificates', e);
 		}
-	]);
+	});
 
 	// ── Derived Stats ──────────────────────────────────────────────────────────
 	const pendingCount = $derived(certificates.filter((c) => c.status === 'Pending').length);
@@ -262,72 +125,65 @@
 	const selectedCert = $derived(certificates.find((c) => c.id === selectedId) ?? certificates[0]);
 
 	// ── Actions ──────────────────────────────────────────────────────────────────
-	function approveCert(cert: Certificate) {
-		certificates = certificates.map((c) =>
-			c.id === cert.id ? { ...c, status: 'Approved' as CertStatus } : c
-		);
-		triggerToast(`Approved “${cert.name}” for ${cert.student}.`);
-	}
-
-	function rejectCert(cert: Certificate) {
-		certificates = certificates.map((c) =>
-			c.id === cert.id ? { ...c, status: 'Rejected' as CertStatus } : c
-		);
-		triggerToast(`Rejected “${cert.name}” for ${cert.student}.`, 'danger');
-	}
-
-	// ── Recent Verification Activity (static log) ────────────────────────────────
-	interface ActivityLog {
-		student: string;
-		regNo: string;
-		certificate: string;
-		date: string;
-		verifiedBy: string;
-		status: CertStatus;
-	}
-
-	const recentActivity: ActivityLog[] = [
-		{
-			student: 'Meera Krishnan',
-			regNo: 'EN23021',
-			certificate: 'Workshop on AI Ethics',
-			date: '24 Jun 2025',
-			verifiedBy: 'Dr. Rajesh Kumar',
-			status: 'Approved'
-		},
-		{
-			student: 'Karan Joshi',
-			regNo: 'EN22011',
-			certificate: 'Blood Donation Drive',
-			date: '22 Jun 2025',
-			verifiedBy: 'Dr. Rajesh Kumar',
-			status: 'Approved'
-		},
-		{
-			student: 'Pallavi Desai',
-			regNo: 'EN23016',
-			certificate: 'Dance Competition – 2nd Place',
-			date: '20 Jun 2025',
-			verifiedBy: 'Dr. Rajesh Kumar',
-			status: 'Rejected'
-		},
-		{
-			student: 'Sahil Rao',
-			regNo: 'EN22025',
-			certificate: 'Coding Bootcamp Certificate',
-			date: '18 Jun 2025',
-			verifiedBy: 'Dr. Rajesh Kumar',
-			status: 'Approved'
-		},
-		{
-			student: 'Tanvi Kulkarni',
-			regNo: 'EN23029',
-			certificate: 'Poster Presentation – Nat. Contest',
-			date: '16 Jun 2025',
-			verifiedBy: 'Dr. Rajesh Kumar',
-			status: 'Approved'
+	async function approveCert(cert: Certificate) {
+		try {
+			const token = localStorage.getItem('admin_token');
+			const res = await fetch(`${API_BASE_URL}/api/admin/certificates/${cert.id}/approve`, {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			if (res.ok) {
+				certificates = certificates.map((c) =>
+					c.id === cert.id ? { ...c, status: 'Approved' as CertStatus } : c
+				);
+				triggerToast(`Approved “${cert.name}” for ${cert.student}.`);
+			} else {
+				triggerToast('Failed to approve certificate', 'danger');
+			}
+		} catch {
+			triggerToast('Failed to approve certificate', 'danger');
 		}
-	];
+	}
+
+	async function rejectCert(cert: Certificate) {
+		const reason = prompt('Reason for rejection:');
+		if (reason === null) return;
+		try {
+			const token = localStorage.getItem('admin_token');
+			const res = await fetch(`${API_BASE_URL}/api/admin/certificates/${cert.id}/reject`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({ reason })
+			});
+			if (res.ok) {
+				certificates = certificates.map((c) =>
+					c.id === cert.id ? { ...c, status: 'Rejected' as CertStatus } : c
+				);
+				triggerToast(`Rejected “${cert.name}” for ${cert.student}.`, 'danger');
+			} else {
+				triggerToast('Failed to reject certificate', 'danger');
+			}
+		} catch {
+			triggerToast('Failed to reject certificate', 'danger');
+		}
+	}
+
+	const recentActivity = $derived(
+		certificates
+			.filter((c) => c.status !== 'Pending')
+			.map((c) => ({
+				student: c.student,
+				regNo: c.regNo,
+				certificate: c.name,
+				date: c.submittedOn,
+				verifiedBy: 'Admin',
+				status: c.status
+			}))
+			.slice(0, 5)
+	);
 
 	// ── Toast ──────────────────────────────────────────────────────────────────
 	interface Toast {

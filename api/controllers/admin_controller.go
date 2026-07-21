@@ -125,6 +125,7 @@ func applyStudentStats(student *models.Student) {
 
 	student.CreditsEarned = credits
 	student.PendingCertificates = pending
+	student.TotalCertificates = len(student.Certificates)
 	student.ActivityCount = len(student.Enrollments)
 
 	switch {
@@ -146,10 +147,10 @@ func GetAllStudents(c *fiber.Ctx) error {
 
 	type StudentRow struct {
 		models.Student
-		CreditsEarned       int
-		PendingCertificates int
-		TotalCertificates   int
-		ActivityCount       int
+		CreditsEarned       int `gorm:"column:credits_earned"`
+		PendingCertificates int `gorm:"column:pending_certificates"`
+		TotalCertificates   int `gorm:"column:total_certificates"`
+		ActivityCount       int `gorm:"column:activity_count"`
 	}
 
 	dbQuery := config.DB.Model(&models.Student{}).Select(`
@@ -178,7 +179,9 @@ func GetAllStudents(c *fiber.Ctx) error {
 		students[i].TotalCertificates = r.TotalCertificates
 		students[i].ActivityCount = r.ActivityCount
 
-		if students[i].ActivityCount == 0 && students[i].CreditsEarned == 0 && students[i].PendingCertificates == 0 {
+		if students[i].ActivityCount == 0 &&
+			students[i].CreditsEarned == 0 &&
+			students[i].PendingCertificates == 0 {
 			students[i].EngagementStatus = "Inactive"
 		} else if students[i].PendingCertificates > 0 {
 			students[i].EngagementStatus = "Pending Review"
@@ -219,7 +222,7 @@ func GetStudentDetail(c *fiber.Ctx) error {
 }
 
 // Fetches student if they exist AND are within admin's batch scope
-func getScopedStudent(c *fiber.Ctx, roll string, admin *models.Admin) (*models.Student, error) {
+func getScopedStudent(_ *fiber.Ctx, roll string, admin *models.Admin) (*models.Student, error) {
 	var student models.Student
 	dbQuery, scoped := scopeToAssignedBatch(config.DB.Where("roll_no = ?", roll), admin)
 
@@ -317,12 +320,19 @@ func SendStudentNotice(c *fiber.Ctx) error {
 		return err
 	}
 
+	// 1. Parse the incoming JSON to get the custom message from the frontend
+	var input models.NoticeInput
+	if err := c.BodyParser(&input); err != nil || input.Message == "" {
+		return errJSON(c, fiber.StatusBadRequest, "Notice message is required")
+	}
+
 	student, err := getScopedStudent(c, roll, admin)
 	if err != nil {
 		return errJSON(c, fiber.StatusNotFound, err.Error())
 	}
 
-	msg := fmt.Sprintf("Dear %s,\n\nOfficial notice regarding your iSPARC progress.\n\nRegards,\n%s", student.Name, admin.Name)
+	// 2. Inject the custom input.Message into the email template
+	msg := fmt.Sprintf("Dear %s,\n\n%s\n\nRegards,\n%s", student.Name, input.Message, admin.Name)
 
 	if err := utils.SendEmail(student.EmailID, "iSPARC Notice", msg); err != nil {
 		return errJSON(c, fiber.StatusInternalServerError, "Failed to dispatch email")
@@ -337,9 +347,13 @@ func GetAdminDashboardStats(c *fiber.Ctx) error {
 		return err
 	}
 
-	var totalStudents int64
-	query, scoped := scopeToAssignedBatch(config.DB.Model(&models.Student{}), admin)
-	if !scoped {
+	batchPrefix := ""
+	if admin.Role == "admin" {
+		batchPrefix = admin.AssignedBatch
+	}
+
+	// If admin has no assigned batch, return 0s
+	if admin.Role == "admin" && batchPrefix == "" {
 		return c.JSON(fiber.Map{
 			"total_students":  0,
 			"active_students": 0,
@@ -347,37 +361,47 @@ func GetAdminDashboardStats(c *fiber.Ctx) error {
 			"average_credits": 0,
 		})
 	}
-	query.Count(&totalStudents)
 
-	// Pending reviews (Certificates with Status = 'Pending' for this batch)
-	var pendingReviews int64
-	certQuery := config.DB.Model(&models.Certificate{}).Joins("JOIN students on students.roll_no = certificates.student_roll_no").Where("certificates.status = ?", "Pending")
-	if admin.Role == "admin" && admin.AssignedBatch != "" {
-		certQuery = certQuery.Where("students.roll_no LIKE ?", admin.AssignedBatch+"%")
+	var totalStudents int64
+	studentQuery := config.DB.Model(&models.Student{})
+	if batchPrefix != "" {
+		studentQuery = studentQuery.Where("roll_no LIKE ?", batchPrefix+"%")
 	}
-	certQuery.Count(&pendingReviews)
+	studentQuery.Count(&totalStudents)
 
-	// Total Credits Earned
-	var totalCredits sql.NullFloat64
-	creditsQuery := config.DB.Model(&models.Certificate{}).Select("SUM(certificates.credits)").Joins("JOIN students on students.roll_no = certificates.student_roll_no").Where("certificates.status = ?", "Approved")
-	if admin.Role == "admin" && admin.AssignedBatch != "" {
-		creditsQuery = creditsQuery.Where("students.roll_no LIKE ?", admin.AssignedBatch+"%")
-	}
-	creditsQuery.Scan(&totalCredits)
-
-	avgCredits := 0.0
-	if totalStudents > 0 && totalCredits.Valid {
-		avgCredits = totalCredits.Float64 / float64(totalStudents)
-	}
-
-	// Active Students
 	var activeStudents int64
 	activeQuery := config.DB.Model(&models.Student{}).
 		Where("EXISTS (SELECT 1 FROM enrollments WHERE enrollments.student_roll_no = students.roll_no) OR EXISTS (SELECT 1 FROM certificates WHERE certificates.student_roll_no = students.roll_no)")
-	if admin.Role == "admin" && admin.AssignedBatch != "" {
-		activeQuery = activeQuery.Where("students.roll_no LIKE ?", admin.AssignedBatch+"%")
+	if batchPrefix != "" {
+		activeQuery = activeQuery.Where("roll_no LIKE ?", batchPrefix+"%")
 	}
 	activeQuery.Count(&activeStudents)
+
+	var pendingReviews int64
+	certQuery := config.DB.Model(&models.Certificate{}).Where("status = ?", "Pending")
+	if batchPrefix != "" {
+		certQuery = certQuery.Joins("JOIN students on students.roll_no = certificates.student_roll_no").Where("students.roll_no LIKE ?", batchPrefix+"%")
+	}
+	certQuery.Count(&pendingReviews)
+
+	var totalCredits int64
+	type CreditResult struct {
+		Total sql.NullInt64
+	}
+	var res CreditResult
+	creditsQuery := config.DB.Model(&models.Certificate{}).Select("SUM(credits) as total").Where("status = ?", "Approved")
+	if batchPrefix != "" {
+		creditsQuery = creditsQuery.Joins("JOIN students on students.roll_no = certificates.student_roll_no").Where("students.roll_no LIKE ?", batchPrefix+"%")
+	}
+	creditsQuery.Scan(&res)
+	if res.Total.Valid {
+		totalCredits = res.Total.Int64
+	}
+
+	avgCredits := 0.0
+	if totalStudents > 0 {
+		avgCredits = float64(totalCredits) / float64(totalStudents)
+	}
 
 	return c.JSON(fiber.Map{
 		"total_students":  totalStudents,
@@ -393,25 +417,205 @@ func GetRecentActivities(c *fiber.Ctx) error {
 		return err
 	}
 
-	if admin.Role == "admin" && admin.AssignedBatch == "" {
-		return c.JSON(fiber.Map{"recent_activities": []models.Certificate{}})
-	}
-
 	var recentCerts []models.Certificate
-	certQuery := config.DB.Preload("Student").
-		Joins("JOIN students on students.roll_no = certificates.student_roll_no").
-		Order("certificates.created_at desc").
-		Limit(5)
+	query := config.DB.Preload("Student").Order("created_at desc").Limit(5)
 
 	if admin.Role == "admin" && admin.AssignedBatch != "" {
-		certQuery = certQuery.Where("students.roll_no LIKE ?", admin.AssignedBatch+"%")
+		query = query.Where("student_roll_no LIKE ?", admin.AssignedBatch+"%")
 	}
 
-	if err := certQuery.Find(&recentCerts).Error; err != nil {
-		return errJSON(c, fiber.StatusInternalServerError, "Failed to fetch recent activities")
+	query.Find(&recentCerts)
+	return c.JSON(fiber.Map{"recent_activities": recentCerts})
+}
+
+func GetAdminProfile(c *fiber.Ctx) error {
+	admin, err := getAuthenticatedAdmin(c)
+	if err != nil {
+		return err
+	}
+
+	batchPrefix := ""
+	if admin.Role == "admin" {
+		batchPrefix = admin.AssignedBatch
+	}
+
+	var assignedStudents int64
+	var verifiedCertificates int64
+	var pendingReviews int64
+	var supervisedActivities int64
+
+	if admin.Role == "superadmin" || batchPrefix != "" {
+		studentQuery := config.DB.Model(&models.Student{})
+		if batchPrefix != "" {
+			studentQuery = studentQuery.Where("roll_no LIKE ?", batchPrefix+"%")
+		}
+		studentQuery.Count(&assignedStudents)
+
+		certQuery := config.DB.Model(&models.Certificate{})
+		if batchPrefix != "" {
+			certQuery = certQuery.Joins("JOIN students on students.roll_no = certificates.student_roll_no").Where("students.roll_no LIKE ?", batchPrefix+"%")
+		}
+		certQuery.Where("certificates.status = ?", "Approved").Count(&verifiedCertificates)
+
+		pendingQuery := config.DB.Model(&models.Certificate{})
+		if batchPrefix != "" {
+			pendingQuery = pendingQuery.Joins("JOIN students on students.roll_no = certificates.student_roll_no").Where("students.roll_no LIKE ?", batchPrefix+"%")
+		}
+		pendingQuery.Where("certificates.status = ?", "Pending").Count(&pendingReviews)
+
+		obsQuery := config.DB.Model(&models.AdminNote{})
+		if batchPrefix != "" {
+			obsQuery = obsQuery.Joins("JOIN students on students.roll_no = admin_notes.student_roll_no").Where("students.roll_no LIKE ?", batchPrefix+"%")
+		}
+		obsQuery.Count(&supervisedActivities)
 	}
 
 	return c.JSON(fiber.Map{
-		"recent_activities": recentCerts,
+		"admin": fiber.Map{
+			"admin_id":       admin.AdminID,
+			"name":           admin.Name,
+			"email":          admin.Email,
+			"role":           admin.Role,
+			"assigned_batch": admin.AssignedBatch,
+		},
+		"stats": fiber.Map{
+			"assigned_students":     assignedStudents,
+			"verified_certificates": verifiedCertificates,
+			"pending_reviews":       pendingReviews,
+			"supervised_activities": supervisedActivities,
+		},
 	})
+}
+
+func UpdateAdminProfile(c *fiber.Ctx) error {
+	admin, err := getAuthenticatedAdmin(c)
+	if err != nil {
+		return err
+	}
+
+	var input struct {
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return errJSON(c, fiber.StatusBadRequest, "Invalid request payload")
+	}
+
+	if input.Name != "" {
+		admin.Name = input.Name
+	}
+	if input.Email != "" {
+		admin.Email = input.Email
+	}
+
+	if err := config.DB.Save(&admin).Error; err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, "Failed to update profile")
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Profile updated successfully",
+		"admin": fiber.Map{
+			"admin_id":       admin.AdminID,
+			"name":           admin.Name,
+			"email":          admin.Email,
+			"role":           admin.Role,
+			"assigned_batch": admin.AssignedBatch,
+		},
+	})
+}
+
+func GetAllCertificates(c *fiber.Ctx) error {
+	admin, err := getAuthenticatedAdmin(c)
+	if err != nil {
+		return err
+	}
+
+	var certs []models.Certificate
+	query := config.DB.Preload("Student").Order("created_at desc")
+
+	if admin.Role == "admin" && admin.AssignedBatch != "" {
+		query = query.Where("student_roll_no LIKE ?", admin.AssignedBatch+"%")
+	}
+
+	query.Find(&certs)
+	return c.JSON(fiber.Map{"certificates": certs})
+}
+
+func GetCertificatesQueue(c *fiber.Ctx) error {
+	admin, err := getAuthenticatedAdmin(c)
+	if err != nil {
+		return err
+	}
+
+	if admin.Role == "admin" && admin.AssignedBatch == "" {
+		return c.JSON(fiber.Map{"certificates": []models.Certificate{}})
+	}
+
+	var certs []models.Certificate
+
+	// Removed the fragile JOIN. Preload is all you need to attach the student data.
+	certQuery := config.DB.Preload("Student").Order("created_at desc")
+
+	if admin.Role == "admin" && admin.AssignedBatch != "" {
+		// Filter using the column that already exists on the certificates table
+		certQuery = certQuery.Where("student_roll_no LIKE ?", admin.AssignedBatch+"%")
+	}
+
+	if err := certQuery.Find(&certs).Error; err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, "Failed to fetch certificates queue")
+	}
+
+	return c.JSON(fiber.Map{
+		"certificates": certs,
+	})
+}
+
+func ApproveCertificate(c *fiber.Ctx) error {
+	return updateCertificateStatus(c, "Approved")
+}
+
+func RejectCertificate(c *fiber.Ctx) error {
+	return updateCertificateStatus(c, "Rejected")
+}
+
+func updateCertificateStatus(c *fiber.Ctx, status string) error {
+	id := c.Params("id")
+	admin, err := getAuthenticatedAdmin(c)
+	if err != nil {
+		return err
+	}
+
+	var cert models.Certificate
+
+	// Removed the fragile JOIN here as well
+	certQuery := config.DB.Preload("Student").Where("id = ?", id)
+
+	if admin.Role == "admin" {
+		if admin.AssignedBatch == "" {
+			return errJSON(c, fiber.StatusForbidden, "Admin not assigned to any batch")
+		}
+		// Validate access using the certificate's foreign key
+		certQuery = certQuery.Where("student_roll_no LIKE ?", admin.AssignedBatch+"%")
+	}
+
+	if err := certQuery.First(&cert).Error; err != nil {
+		return errJSON(c, fiber.StatusNotFound, "Certificate not found or access denied")
+	}
+
+	if status == "Rejected" {
+		var input struct {
+			Reason string `json:"reason"`
+		}
+		if err := c.BodyParser(&input); err == nil && input.Reason != "" {
+			cert.RejectionReason = input.Reason
+		}
+	}
+
+	cert.Status = status
+	if err := config.DB.Save(&cert).Error; err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, "Failed to update certificate status")
+	}
+
+	return c.JSON(fiber.Map{"message": "Certificate status updated to " + status, "certificate": cert})
 }

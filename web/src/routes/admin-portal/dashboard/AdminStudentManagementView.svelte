@@ -260,6 +260,33 @@
 		activeStudent = null;
 	}
 
+	async function handleSendNotice() {
+		if (!activeStudent) return;
+		const message = prompt(`Enter notice message for ${activeStudent.name}:`);
+		if (!message || message.trim() === '') return;
+
+		triggerToast(`Sending notice to ${activeStudent.name}...`);
+		const token = localStorage.getItem('admin_token');
+		try {
+			const res = await fetch(`${API_BASE_URL}/api/admin/students/${activeStudent.regNo}/notice`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({ message })
+			});
+			if (res.ok) {
+				triggerToast(`Notice sent successfully!`);
+			} else {
+				triggerToast(`Failed to send notice`, 'danger');
+			}
+		} catch {
+			triggerToast(`Failed to send notice`, 'danger');
+		}
+		closeModal();
+	}
+
 	// ── Student Detail View ──────────────────────────────────────────────────────
 	let detailStudent = $state<Student | null>(null);
 
@@ -1262,26 +1289,8 @@
 					Close
 				</button>
 				<button
-					onclick={async () => {
-						const msg = prompt('Enter notice message:');
-						if (!msg) return;
-						try {
-							const token = localStorage.getItem('admin_token');
-							await fetch(`${API_BASE_URL}/api/admin/students/${activeStudent?.regNo}/notice`, {
-								method: 'POST',
-								headers: {
-									'Content-Type': 'application/json',
-									Authorization: `Bearer ${token}`
-								},
-								body: JSON.stringify({ message: msg })
-							});
-							triggerToast(`Sending notice to ${activeStudent?.name}...`);
-						} catch {
-							triggerToast('Failed to send notice', 'danger');
-						}
-						closeModal();
-					}}
-					class="inline-flex items-center gap-1.5 rounded-lg bg-[#881B1B] px-4 py-2 text-xs font-bold text-white shadow-xs transition-colors hover:bg-[#881B1B]/90 focus:outline-none"
+					onclick={handleSendNotice}
+					class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-[#881B1B] hover:bg-[#881B1B]/90 rounded-lg transition-colors focus:outline-none shadow-xs"
 				>
 					<svg
 						xmlns="http://www.w3.org/2000/svg"
