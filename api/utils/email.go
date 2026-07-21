@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/smtp"
 	"os"
+	"regexp"
+	"strings"
 )
 
 // GenerateOTP generates a cryptographically secure 6-digit numeric string
@@ -60,4 +62,16 @@ func SendOTP(toEmail, otpCode, purpose string) error {
 
 	log.Printf("OTP email successfully sent to %s", toEmail)
 	return nil
+}
+
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+
+// ValidateEmail checks if the email matches a realistic format.
+func ValidateEmail(email string) bool {
+	return emailRegex.MatchString(email)
+}
+
+// NormalizeEmail trims spaces and lowercases the email.
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }

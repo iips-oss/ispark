@@ -329,6 +329,7 @@ func seedStudents(hashedPassword string) ([]models.Student, error) {
 				EnrollmentNo: student.EnrollmentNo,
 				// Seeded students skip OTP: they are ready to log in.
 				IsVerified: true,
+				Status:     "Active",
 			}).
 			FirstOrCreate(&existing).Error; err != nil {
 			return nil, err
@@ -343,6 +344,10 @@ func seedStudents(hashedPassword string) ([]models.Student, error) {
 // ---------------------------------------------------------------------------
 // Activities
 // ---------------------------------------------------------------------------
+
+func uintPtr(u uint) *uint {
+	return &u
+}
 
 // Categories are upper case because that is what the activity catalogue in the
 // student portal groups and filters on. trackIDs maps a track name to its ID so
@@ -365,43 +370,43 @@ func seedActivities(trackIDs map[string]uint) ([]models.Activity, error) {
 
 	activities := []models.Activity{
 		{
-			Name: "National Hackathon 2026", Category: "TECHNICAL",
+			Name: "National Hackathon 2026", Category: "TECHNICAL", TrackID: uintPtr(2), Type: "Workshop",
 			Description: "A 36-hour coding challenge open to all students. Build solutions for real-world problems.",
 			Credits:     15, Mode: "Offline", Venue: "IIPS Auditorium", Coordinator: "Dr. Rajesh Kumar", CoordinatorID: "admin",
 			RegDeadline: now.AddDate(0, 0, 3), ActivityDate: now.AddDate(0, 0, 10), Status: "Closing Soon",
 		},
 		{
-			Name: "National Science Olympiad", Category: "RESEARCH",
+			Name: "National Science Olympiad", Category: "RESEARCH", TrackID: uintPtr(2), Type: "Seminar",
 			Description: "National-level science competition covering physics, chemistry and biology.",
 			Credits:     20, Mode: "Hybrid", Venue: "IIPS Seminar Hall", Coordinator: "Dr. Priya Patel", CoordinatorID: "admin2",
 			RegDeadline: now.AddDate(0, 0, 14), ActivityDate: now.AddDate(0, 0, 21), Status: "Open",
 		},
 		{
-			Name: "Inter-College Athletics Meet", Category: "SPORTS",
+			Name: "Inter-College Athletics Meet", Category: "SPORTS", TrackID: uintPtr(2), Type: "Workshop",
 			Description: "Annual inter-college athletics championship. Represent IIPS in track and field events.",
 			Credits:     10, Mode: "Offline", Venue: "DAVV Sports Ground", Coordinator: "Prof. Anjali Sharma",
 			RegDeadline: now.AddDate(0, 0, 7), ActivityDate: now.AddDate(0, 0, 12), Status: "Open",
 		},
 		{
-			Name: "Cultural Fest - Rangmanch", Category: "CULTURAL",
+			Name: "Cultural Fest - Rangmanch", Category: "CULTURAL", TrackID: uintPtr(2), Type: "Workshop",
 			Description: "Annual cultural festival with music, dance and theatre performances.",
 			Credits:     10, Mode: "Offline", Venue: "IIPS Open Air Theatre", Coordinator: "Prof. Anjali Sharma",
 			RegDeadline: now.AddDate(0, 0, 9), ActivityDate: now.AddDate(0, 0, 16), Status: "Open",
 		},
 		{
-			Name: "Student Leadership Workshop", Category: "LEADERSHIP",
+			Name: "Student Leadership Workshop", Category: "LEADERSHIP", TrackID: uintPtr(1), Type: "Seminar",
 			Description: "Leadership development workshop covering team building and decision making.",
 			Credits:     10, Mode: "Offline", Venue: "IIPS Seminar Hall", Coordinator: "Dr. Mehta",
 			RegDeadline: now.AddDate(0, 0, 5), ActivityDate: now.AddDate(0, 0, 11), Status: "Open",
 		},
 		{
-			Name: "Inter College Debate Championship", Category: "PUBLIC SPEAKING",
+			Name: "Inter College Debate Championship", Category: "PUBLIC SPEAKING", TrackID: uintPtr(1), Type: "Seminar",
 			Description: "Parliamentary-style debate on contemporary socio-political topics.",
 			Credits:     12, Mode: "Offline", Venue: "IIPS Conference Hall", Coordinator: "Dr. Rajesh Kumar", CoordinatorID: "admin",
 			RegDeadline: now.AddDate(0, 0, 4), ActivityDate: now.AddDate(0, 0, 9), Status: "Closing Soon",
 		},
 		{
-			Name: "Blood Donation Camp", Category: "SOCIAL SERVICE",
+			Name: "Blood Donation Camp", Category: "SOCIAL SERVICE", TrackID: uintPtr(1), Type: "Workshop",
 			Description: "Community health initiative with District Hospital Indore. Volunteers earn social service credit.",
 			Credits:     8, Mode: "Offline", Venue: "IIPS Main Ground", Coordinator: "NSS Cell",
 			RegDeadline: now.AddDate(0, 0, -2), ActivityDate: now.AddDate(0, 0, 1), Status: "Closed",
@@ -423,8 +428,8 @@ func seedActivities(trackIDs map[string]uint) ([]models.Activity, error) {
 		var existing models.Activity
 		if err := DB.Where(models.Activity{Name: activity.Name}).
 			Assign(models.Activity{
-				Category:      activity.Category,
 				TrackID:       trackID,
+				Type:          activity.Type,
 				Description:   activity.Description,
 				Credits:       activity.Credits,
 				Mode:          activity.Mode,

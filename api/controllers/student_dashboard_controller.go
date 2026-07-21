@@ -424,6 +424,23 @@ func UpdateProfile(c *fiber.Ctx) error {
 
 	// Update fields if provided
 	if input.EmailID != "" {
+		input.EmailID = utils.NormalizeEmail(input.EmailID)
+		if !utils.ValidateEmail(input.EmailID) {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "Invalid email address format",
+			})
+		}
+		if input.EmailID != student.EmailID {
+			var count int64
+			config.DB.Model(&models.Student{}).Where("LOWER(email_id) = ? AND roll_no != ?", input.EmailID, student.RollNo).Count(&count)
+			if count > 0 {
+				return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "A student with this email already exists"})
+			}
+			config.DB.Model(&models.Admin{}).Where("LOWER(email) = ?", input.EmailID).Count(&count)
+			if count > 0 {
+				return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "An admin with this email already exists"})
+			}
+		}
 		student.EmailID = input.EmailID
 	}
 	if input.ContactNo != "" {

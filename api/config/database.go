@@ -62,4 +62,27 @@ func ConnectDB() {
 			}
 		}
 	}
+
+	// Safe data migration: backfill track_id for existing activities if null or 0
+	var unassignedCount int64
+	if err := DB.Model(&models.Activity{}).Where("track_id IS NULL OR track_id = 0").Count(&unassignedCount).Error; err == nil && unassignedCount > 0 {
+		var skillTrack, personalityTrack models.Track
+		DB.Where("LOWER(name) = ?", "skill building").FirstOrCreate(&skillTrack, models.Track{
+			Name: "Skill Building", Description: "Technical and vocational activities that develop practical competencies.", Status: "Active",
+		})
+		DB.Where("LOWER(name) = ?", "personality development").FirstOrCreate(&personalityTrack, models.Track{
+			Name: "Personality Development", Description: "Activities focused on personal growth, communication, and leadership skills.", Status: "Active",
+		})
+
+		if skillTrack.ID != 0 {
+			DB.Model(&models.Activity{}).
+				Where("(track_id IS NULL OR track_id = 0) AND UPPER(category) IN ?", []string{"TECHNICAL", "RESEARCH", "SPORTS", "CULTURAL"}).
+				Update("track_id", skillTrack.ID)
+		}
+		if personalityTrack.ID != 0 {
+			DB.Model(&models.Activity{}).
+				Where("track_id IS NULL OR track_id = 0").
+				Update("track_id", personalityTrack.ID)
+		}
+	}
 }
