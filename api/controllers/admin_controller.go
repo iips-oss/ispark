@@ -8,6 +8,7 @@ import (
 	"github.com/iips-oss/ispark/api/models"
 	"github.com/iips-oss/ispark/api/utils"
 	"gorm.io/gorm"
+	"strings"
 )
 
 func errJSON(c *fiber.Ctx, status int, msg string) error {
@@ -57,6 +58,12 @@ func AdminChangePassword(c *fiber.Ctx) error {
 	if input.NewPassword != input.ConfirmPassword {
 		return errJSON(c, fiber.StatusBadRequest, "Passwords do not match")
 	}
+
+	// Validate password strength
+	if err := utils.ValidatePasswordStrength(input.NewPassword); err != nil {
+		return errJSON(c, fiber.StatusBadRequest, err.Error())
+	}
+
 	adminID, ok := c.Locals("roll_no").(string)
 	if !ok || adminID == "" {
 		return errJSON(c, fiber.StatusUnauthorized, "Unauthorized")
@@ -463,11 +470,8 @@ func GetAdminProfile(c *fiber.Ctx) error {
 		}
 		pendingQuery.Where("certificates.status = ?", "Pending").Count(&pendingReviews)
 
-		obsQuery := config.DB.Model(&models.AdminNote{})
-		if batchPrefix != "" {
-			obsQuery = obsQuery.Joins("JOIN students on students.roll_no = admin_notes.student_roll_no").Where("students.roll_no LIKE ?", batchPrefix+"%")
-		}
-		obsQuery.Count(&supervisedActivities)
+		config.DB.Model(&models.Activity{}).Where("coordinator_id = ?", admin.AdminID).Count(&supervisedActivities)
+
 	}
 
 	return c.JSON(fiber.Map{
@@ -502,11 +506,38 @@ func UpdateAdminProfile(c *fiber.Ctx) error {
 		return errJSON(c, fiber.StatusBadRequest, "Invalid request payload")
 	}
 
+	// Validate name
 	if input.Name != "" {
-		admin.Name = input.Name
+		trimmedName := strings.TrimSpace(input.Name)
+		if trimmedName == "" {
+			return errJSON(c, fiber.StatusBadRequest, "Name cannot be blank")
+		}
+		if len(trimmedName) > 100 {
+			return errJSON(c, fiber.StatusBadRequest, "Name cannot exceed 100 characters")
+		}
+		admin.Name = trimmedName
 	}
+
+	// Validate email
 	if input.Email != "" {
-		admin.Email = input.Email
+		trimmedEmail := strings.TrimSpace(input.Email)
+		if trimmedEmail == "" {
+			return errJSON(c, fiber.StatusBadRequest, "Email cannot be blank")
+		}
+		if len(trimmedEmail) > 100 {
+			return errJSON(c, fiber.StatusBadRequest, "Email cannot exceed 100 characters")
+		}
+		if !utils.IsValidEmail(trimmedEmail) {
+			return errJSON(c, fiber.StatusBadRequest, "Invalid email format")
+		}
+
+		// Check for duplicate email (case-insensitive)
+		var existingAdmin models.Admin
+		if err := config.DB.Where("LOWER(email) = LOWER(?) AND admin_id != ?", trimmedEmail, admin.AdminID).First(&existingAdmin).Error; err == nil {
+			return errJSON(c, fiber.StatusConflict, "Email already in use")
+		}
+
+		admin.Email = trimmedEmail
 	}
 
 	if err := config.DB.Save(&admin).Error; err != nil {
