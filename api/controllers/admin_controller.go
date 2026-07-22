@@ -152,48 +152,59 @@ func GetAllStudents(c *fiber.Ctx) error {
 		return err
 	}
 
-	type StudentRow struct {
-		models.Student
-		CreditsEarned       int `gorm:"column:credits_earned"`
-		PendingCertificates int `gorm:"column:pending_certificates"`
-		TotalCertificates   int `gorm:"column:total_certificates"`
-		ActivityCount       int `gorm:"column:activity_count"`
+	var students []models.Student
+	studentQuery := config.DB.Model(&models.Student{}).Preload("Batch")
+	studentQuery, scoped := scopeToAssignedBatch(studentQuery, currentUser)
+
+	if !scoped {
+		return c.JSON(fiber.Map{"students": []models.Student{}})
 	}
 
-	dbQuery := config.DB.Model(&models.Student{}).Select(`
-		students.*,
+	if err := studentQuery.Find(&students).Error; err != nil {
+		return errJSON(c, fiber.StatusInternalServerError, "Failed to retrieve students")
+	}
+
+	type StudentStats struct {
+		RollNo              string `gorm:"column:roll_no"`
+		CreditsEarned       int    `gorm:"column:credits_earned"`
+		PendingCertificates int    `gorm:"column:pending_certificates"`
+		TotalCertificates   int    `gorm:"column:total_certificates"`
+		ActivityCount       int    `gorm:"column:activity_count"`
+	}
+
+	var stats []StudentStats
+	statsQuery := config.DB.Model(&models.Student{}).Select(`
+		roll_no,
 		(SELECT COALESCE(SUM(credits), 0) FROM certificates WHERE certificates.student_roll_no = students.roll_no AND status = 'Approved') as credits_earned,
 		(SELECT COUNT(*) FROM certificates WHERE certificates.student_roll_no = students.roll_no AND status = 'Pending') as pending_certificates,
 		(SELECT COUNT(*) FROM certificates WHERE certificates.student_roll_no = students.roll_no) as total_certificates,
 		(SELECT COUNT(*) FROM enrollments WHERE enrollments.student_roll_no = students.roll_no) as activity_count
 	`)
 
-	dbQuery, scoped := scopeToAssignedBatch(dbQuery, currentUser)
-	if !scoped {
-		return c.JSON(fiber.Map{"students": []models.Student{}})
+	statsQuery, _ = scopeToAssignedBatch(statsQuery, currentUser)
+	statsQuery.Scan(&stats)
+
+	statsMap := make(map[string]StudentStats)
+	for _, s := range stats {
+		statsMap[s.RollNo] = s
 	}
 
-	var rows []StudentRow
-	if err := dbQuery.Find(&rows).Error; err != nil {
-		return errJSON(c, fiber.StatusInternalServerError, "Failed to retrieve students")
-	}
+	for i, student := range students {
+		if stat, exists := statsMap[student.RollNo]; exists {
+			students[i].CreditsEarned = stat.CreditsEarned
+			students[i].PendingCertificates = stat.PendingCertificates
+			students[i].TotalCertificates = stat.TotalCertificates
+			students[i].ActivityCount = stat.ActivityCount
 
-	students := make([]models.Student, len(rows))
-	for i, r := range rows {
-		students[i] = r.Student
-		students[i].CreditsEarned = r.CreditsEarned
-		students[i].PendingCertificates = r.PendingCertificates
-		students[i].TotalCertificates = r.TotalCertificates
-		students[i].ActivityCount = r.ActivityCount
-
-		if students[i].ActivityCount == 0 &&
-			students[i].CreditsEarned == 0 &&
-			students[i].PendingCertificates == 0 {
-			students[i].EngagementStatus = "Inactive"
-		} else if students[i].PendingCertificates > 0 {
-			students[i].EngagementStatus = "Pending Review"
-		} else {
-			students[i].EngagementStatus = "Active"
+			if students[i].ActivityCount == 0 &&
+				students[i].CreditsEarned == 0 &&
+				students[i].PendingCertificates == 0 {
+				students[i].EngagementStatus = "Inactive"
+			} else if students[i].PendingCertificates > 0 {
+				students[i].EngagementStatus = "Pending Review"
+			} else {
+				students[i].EngagementStatus = "Active"
+			}
 		}
 	}
 
