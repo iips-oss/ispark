@@ -444,6 +444,12 @@ func GetRecentActivities(c *fiber.Ctx) error {
 		return err
 	}
 
+	// A batch-scoped admin with no assigned batch must not see other batches'
+	// submissions, matching the scoping of the other admin endpoints.
+	if admin.Role == "admin" && admin.AssignedBatch == "" {
+		return c.JSON(fiber.Map{"recent_activities": []models.Certificate{}})
+	}
+
 	var recentCerts []models.Certificate
 	query := config.DB.Preload("Student").Order("created_at desc").Limit(5)
 
@@ -574,23 +580,6 @@ func UpdateAdminProfile(c *fiber.Ctx) error {
 			"assigned_batch": admin.AssignedBatch,
 		},
 	})
-}
-
-func GetAllCertificates(c *fiber.Ctx) error {
-	admin, err := getAuthenticatedAdmin(c)
-	if err != nil {
-		return err
-	}
-
-	var certs []models.Certificate
-	query := config.DB.Preload("Student").Order("created_at desc")
-
-	if admin.Role == "admin" && admin.AssignedBatch != "" {
-		query = query.Where("student_roll_no LIKE ?", admin.AssignedBatch+"%")
-	}
-
-	query.Find(&certs)
-	return c.JSON(fiber.Map{"certificates": certs})
 }
 
 func GetCertificatesQueue(c *fiber.Ctx) error {

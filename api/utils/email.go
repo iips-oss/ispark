@@ -107,12 +107,10 @@ func SendEmail(toEmail, subject, body string) error {
 
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
 	if err := smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpSender, []string{toEmail}, msg); err != nil {
-		log.Printf("SMTP send failed, falling back to console: %v", err)
-		log.Printf(
-			"\n--- [FALLBACK EMAIL SENDER] ---\nTo: %s\nSubject: %s\nBody:\n%s\n--------------------------------\n",
-			toEmail, subject, body,
-		)
-		return nil // don't fail the API call in dev when SMTP is misconfigured
+		// SMTP is configured but the send failed: surface the error so callers
+		// can report failure instead of falsely reporting success.
+		log.Printf("SMTP send to %s failed: %v", toEmail, err)
+		return err
 	}
 
 	log.Printf("Email successfully sent to %s (subject: %q)", toEmail, subject)
