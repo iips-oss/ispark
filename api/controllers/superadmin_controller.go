@@ -78,6 +78,7 @@ func GetPlatformStats(c *fiber.Ctx) error {
 		{model: &models.Activity{}, into: &totalActivities},
 		{model: &models.Certificate{}, into: &totalCertificates},
 		{model: &models.Certificate{}, where: "status = ?", args: []any{"Pending"}, into: &pendingCertificates},
+		{model: &models.Track{}, where: "status = ?", args: []any{"Active"}, into: &activeTracks},
 	}
 
 	for _, count := range counts {
@@ -90,16 +91,6 @@ func GetPlatformStats(c *fiber.Ctx) error {
 				"error": "Failed to load platform statistics",
 			})
 		}
-	}
-
-	// A track is an activity category, so the number of distinct categories in
-	// use is the number of active tracks.
-	if err := config.DB.Model(&models.Activity{}).
-		Distinct("category").
-		Count(&activeTracks).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to load platform statistics",
-		})
 	}
 
 	return c.JSON(fiber.Map{

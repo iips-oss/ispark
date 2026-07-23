@@ -30,10 +30,7 @@
 	import { API_BASE_URL } from '$lib/config';
 
 	let activities = $state<Activity[]>([]);
-	let availableTracks = $state<TrackOption[]>([
-		{ id: 1, name: 'Personality Development' },
-		{ id: 2, name: 'Skill Building' }
-	]);
+	let availableTracks = $state<TrackOption[]>([]);
 
 	// ── Credit Rules ────────────────────────────────────────────────────────────
 	let creditRules = $state<Record<ActivityType, number>>({
@@ -73,9 +70,7 @@
 			});
 			if (res.ok) {
 				const data = await res.json();
-				if (data.tracks && data.tracks.length > 0) {
-					availableTracks = data.tracks;
-				}
+				availableTracks = data.tracks || [];
 			}
 		} catch (err) {
 			console.error(err);
@@ -162,7 +157,8 @@
 	let editingId = $state<string | null>(null);
 
 	let formName = $state('');
-	let formTrack = $state<Track>('Personality Development');
+	let formTrack = $state<Track>('');
+	let userSelectedTrack = $state(false);
 	let formType = $state<ActivityType>('Workshop');
 	let formCredits = $state(2);
 	let formStatus = $state<ActivityStatus>('Active');
@@ -179,7 +175,8 @@
 		modalMode = 'add';
 		editingId = null;
 		formName = '';
-		formTrack = 'Skill Building';
+		formTrack = availableTracks[0]?.name || '';
+		userSelectedTrack = false;
 		formType = 'Workshop';
 		formCredits = creditRules['Workshop'];
 		formStatus = 'Active';
@@ -202,7 +199,8 @@
 		formCredits = activity.credits;
 		formStatus = activity.status;
 		formCategory = activity.category || 'TECHNICAL';
-		formTrack = activity.track || (availableTracks[0]?.name ?? 'Personality Development');
+		formTrack = activity.track || (availableTracks[0]?.name ?? '');
+		userSelectedTrack = true;
 		formDescription = activity.description || '';
 		formMode = activity.mode || 'Offline';
 		formRegDeadline = activity.reg_deadline
@@ -221,6 +219,7 @@
 	}
 
 	function syncTrackToCategory() {
+		if (userSelectedTrack) return;
 		const cat = formCategory.toUpperCase();
 		if (cat === 'TECHNICAL' || cat === 'RESEARCH' || cat === 'SPORTS' || cat === 'CULTURAL') {
 			if (availableTracks.some((t) => t.name === 'Skill Building')) {
@@ -236,6 +235,11 @@
 	async function handleSaveActivity(e: Event) {
 		e.preventDefault();
 		if (!formName.trim()) return;
+
+		if (!formTrack || (availableTracks.length === 0 && !availableTracks.some((t) => t.name === formTrack))) {
+			triggerToast('Please select a valid track. If no tracks exist, create one in Track Management first.');
+			return;
+		}
 
 		if (formRegDeadline && formActivityDate && formRegDeadline > formActivityDate) {
 			triggerToast('Registration deadline must be on or before the activity date');
@@ -987,15 +991,26 @@
 						<select
 							id="act-track"
 							bind:value={formTrack}
-							class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-850 bg-white focus:outline-none focus:border-slate-355"
+							onchange={() => (userSelectedTrack = true)}
+							disabled={availableTracks.length === 0 && !formTrack}
+							class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-850 bg-white focus:outline-none focus:border-slate-355 disabled:bg-slate-100 disabled:text-slate-400"
 						>
-							{#each availableTracks as trackOption}
-								<option value={trackOption.name}>{trackOption.name}</option>
-							{/each}
-							{#if !availableTracks.some((t) => t.name === formTrack) && formTrack}
-								<option value={formTrack}>{formTrack}</option>
+							{#if availableTracks.length === 0 && !formTrack}
+								<option value="" disabled selected>No tracks available. Please create a track first.</option>
+							{:else}
+								{#each availableTracks as trackOption}
+									<option value={trackOption.name}>{trackOption.name}</option>
+								{/each}
+								{#if !availableTracks.some((t) => t.name === formTrack) && formTrack}
+									<option value={formTrack}>{formTrack}</option>
+								{/if}
 							{/if}
 						</select>
+						{#if availableTracks.length === 0 && !formTrack}
+							<p class="text-[11px] text-amber-600 font-medium mt-1">
+								No active tracks exist in the database. Please add a track in Track Management first.
+							</p>
+						{/if}
 					</div>
 
 					<div class="flex flex-col gap-1.5">
