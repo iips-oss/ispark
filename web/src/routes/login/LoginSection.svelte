@@ -24,7 +24,8 @@
 	let captchaLoading = $state(false);
 
 	// Forgot Password / Reset Password states
-	let viewState = $state<'login' | 'forgot' | 'reset'>('login');
+	let viewState = $state<'login' | 'forgot' | 'reset' | 'verify_otp'>('login');
+	let verifyOtpCode = $state('');
 	let forgotEmail = $state('');
 	let forgotOtp = $state('');
 	let forgotNewPassword = $state('');
@@ -126,6 +127,13 @@
 			const data = await response.json();
 
 			if (!response.ok) {
+				if (response.status === 403 && data.email) {
+					email = data.email;
+					viewState = 'verify_otp';
+					verifyOtpCode = '';
+					errorMsg = data.error || 'Account not verified. A verification code has been sent.';
+					return;
+				}
 				throw new Error(data.error || 'Invalid credentials');
 			}
 
@@ -141,6 +149,47 @@
 				err instanceof Error ? err.message : 'Failed to login. Please check your credentials.';
 			// Refresh captcha on login failure
 			fetchCaptcha();
+		} finally {
+			submitting = false;
+		}
+	}
+
+	// Handle OTP verification for first login / unverified student
+	async function handleVerifyRegistrationOtp(event: SubmitEvent) {
+		event.preventDefault();
+		if (verifyOtpCode.trim() === '') return;
+
+		submitting = true;
+		errorMsg = '';
+
+		try {
+			const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					email: email.trim(),
+					code: verifyOtpCode.trim()
+				})
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || 'Invalid OTP code');
+			}
+
+			// On successful verification, the API logs the user in and returns details
+			if (data.access_token) {
+				localStorage.setItem('access_token', data.access_token);
+			}
+			loginSuccess = true;
+			setTimeout(() => {
+				goto('/portal');
+			}, 1500);
+		} catch (err) {
+			errorMsg = err instanceof Error ? err.message : 'Verification failed. Please try again.';
 		} finally {
 			submitting = false;
 		}
@@ -369,6 +418,73 @@
 					</a>
 				</div>
 			</div>
+		{:else if viewState === 'verify_otp'}
+			<!-- Account Verification OTP View -->
+			<div class="p-6 sm:p-8 border-b border-border-base bg-slate-50/50">
+				<div class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+					STUDENT PORTAL
+				</div>
+				<h2 class="text-2xl font-bold text-inst-navy font-serif leading-tight mt-1">
+					Verify Your Account
+				</h2>
+				<p class="text-slate-500 text-xs mt-1">
+					Your student account requires verification. Please enter the OTP code sent to your email ({email}).
+				</p>
+			</div>
+
+			<form onsubmit={handleVerifyRegistrationOtp} class="p-6 sm:p-8 flex flex-col gap-6">
+				{#if errorMsg}
+					<div
+						class="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-lg"
+						transition:slide={{ duration: 200 }}
+					>
+						{errorMsg}
+					</div>
+				{/if}
+
+				<!-- OTP Code -->
+				<div class="flex flex-col gap-1.5">
+					<label
+						for="{formId}-verify-otp"
+						class="text-[11px] font-bold text-slate-700 tracking-wider"
+					>
+						VERIFICATION CODE (OTP)
+					</label>
+					<input
+						id="{formId}-verify-otp"
+						type="text"
+						bind:value={verifyOtpCode}
+						placeholder="Enter Code"
+						class="w-full px-3.5 py-2.5 bg-white rounded-lg border border-border-base text-center tracking-widest text-[15px] font-bold text-slate-800 placeholder:text-slate-400 placeholder:tracking-normal focus:outline-none focus:border-inst-navy focus:ring-2 focus:ring-inst-navy/10 transition-all duration-200"
+						required
+					/>
+				</div>
+
+				<button
+					type="submit"
+					disabled={submitting || verifyOtpCode.trim() === ''}
+					class="w-full py-3 bg-inst-navy hover:bg-inst-navy/95 active:bg-inst-navy/90 text-white font-bold text-xs tracking-wider uppercase rounded-xl shadow-xs transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+				>
+					{#if submitting}
+						Verifying...
+					{:else}
+						Verify &amp; Log In
+					{/if}
+				</button>
+
+				<div class="flex justify-center items-center text-xs mt-2">
+					<button
+						type="button"
+						onclick={() => {
+							viewState = 'login';
+							errorMsg = '';
+						}}
+						class="text-slate-500 hover:text-slate-800 font-semibold transition duration-200"
+					>
+						← Back to Login
+					</button>
+				</div>
+			</form>
 		{:else if viewState === 'forgot'}
 			<!-- Forgot Password View -->
 			<div class="p-6 sm:p-8 border-b border-border-base bg-slate-50/50">

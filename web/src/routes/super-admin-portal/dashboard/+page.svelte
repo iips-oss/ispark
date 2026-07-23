@@ -16,6 +16,8 @@
 		dept: string;
 		status: string;
 		avatarBg: string;
+		email?: string;
+		semester?: number;
 	}
 
 	interface PlatformStats {
@@ -174,8 +176,8 @@
 			const matchesFilter =
 				userFilter === 'All' ||
 				(userFilter === 'Student' && user.role === 'Student') ||
-				(userFilter === 'Mentor' && user.displayRole === 'Mentor') ||
-				(userFilter === 'Admin' && user.displayRole === 'Admin');
+				(userFilter === 'Admin' &&
+					(user.displayRole === 'Admin' || user.displayRole === 'Super Admin'));
 
 			const matchesSearch =
 				user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -189,13 +191,15 @@
 	// Counted from the real registry. These used to add a fixed number to each
 	// count, which made every figure on this page fictional.
 	let totalStudentsCount = $derived(userRegistry.filter((u) => u.role === 'Student').length);
-	let totalMentorsCount = $derived(userRegistry.filter((u) => u.displayRole === 'Mentor').length);
 	let totalAdminsCount = $derived(
 		userRegistry.filter((u) => u.displayRole === 'Admin' || u.displayRole === 'Super Admin').length
 	);
 	let activeUsersCount = $derived(userRegistry.filter((u) => u.status === 'Active').length);
 	let pendingUsersCount = $derived(userRegistry.filter((u) => u.status === 'Pending').length);
 	let inactiveUsersCount = $derived(userRegistry.filter((u) => u.status === 'Inactive').length);
+	let activeRate = $derived(
+		userRegistry.length > 0 ? ((activeUsersCount / userRegistry.length) * 100).toFixed(1) : '0.0'
+	);
 
 	// Mock Recent System Activities (Step 5)
 	let recentLogs = $state([
@@ -246,6 +250,7 @@
 	// Action modals states (Step 6)
 	let isCreateUserModalOpen = $state(false);
 	let isCreateActivityModalOpen = $state(false);
+	let isManageActivityModalOpen = $state(false);
 	let isCreateTrackModalOpen = $state(false);
 	let isGenerateReportModalOpen = $state(false);
 
@@ -258,6 +263,77 @@
 	let newUserSemester = $state(1);
 	let createUserError = $state('');
 	let creatingUser = $state(false);
+
+	// View / Edit user modal states
+	let isViewUserModalOpen = $state(false);
+	let viewingUser = $state<PlatformUser | null>(null);
+
+	let isEditUserModalOpen = $state(false);
+	let editingUser = $state<PlatformUser | null>(null);
+
+	let editUserName = $state('');
+	let editUserEmail = $state('');
+	let editUserDept = $state('');
+	let editUserSemester = $state(1);
+	let editUserStatus = $state('Active');
+	let editUserError = $state('');
+	let editingUserSubmit = $state(false);
+
+	function openViewUser(user: PlatformUser) {
+		viewingUser = user;
+		isViewUserModalOpen = true;
+	}
+
+	function openEditUser(user: PlatformUser) {
+		editingUser = user;
+		editUserName = user.name;
+		editUserEmail = user.email || '';
+		editUserDept = user.dept;
+		editUserSemester = user.semester || 1;
+		editUserStatus = user.status || 'Active';
+		editUserError = '';
+		isEditUserModalOpen = true;
+	}
+
+	async function handleSaveEditUser(e: Event) {
+		e.preventDefault();
+		if (!editingUser || editingUserSubmit) return;
+
+		editUserError = '';
+		editingUserSubmit = true;
+
+		try {
+			const res = await fetch(`${API_BASE_URL}/api/admin/platform/users/${editingUser.id}`, {
+				method: 'PUT',
+				headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: editUserName,
+					email: editUserEmail,
+					dept: editUserDept,
+					semester: Number(editUserSemester),
+					status: editUserStatus
+				})
+			});
+
+			let data = { error: '' };
+			try {
+				data = await res.json();
+			} catch (err) {
+				console.warn(err);
+			}
+			if (!res.ok) {
+				throw new Error(data.error || 'Failed to update user');
+			}
+
+			triggerToast(`User "${editUserName}" updated successfully!`);
+			await loadPlatformData();
+			isEditUserModalOpen = false;
+		} catch (err) {
+			editUserError = err instanceof Error ? err.message : 'Failed to update user';
+		} finally {
+			editingUserSubmit = false;
+		}
+	}
 	let newActivityName = $state('');
 	let newActivityCredits = $state(5);
 	let newTrackName = $state('');
@@ -427,12 +503,18 @@
 	let toasts = $state<Toast[]>([]);
 	let toastCounter = 0;
 
-	function triggerToast(message: string) {
+	function triggerToast(message: string, duration = 3000) {
 		const id = toastCounter++;
 		toasts = [...toasts, { id, message }];
-		setTimeout(() => {
-			toasts = toasts.filter((t) => t.id !== id);
-		}, 3000);
+		if (duration > 0) {
+			setTimeout(() => {
+				toasts = toasts.filter((t) => t.id !== id);
+			}, duration);
+		}
+	}
+
+	function dismissToast(id: number) {
+		toasts = toasts.filter((t) => t.id !== id);
 	}
 
 	async function handleCreateUser(e: Event) {
@@ -456,7 +538,12 @@
 				})
 			});
 
-			const data = await res.json();
+			let data = { error: '', temporary_password: '' };
+			try {
+				data = await res.json();
+			} catch (err) {
+				console.warn(err);
+			}
 
 			if (!res.ok) {
 				throw new Error(data.error || 'Failed to create user');
@@ -482,7 +569,14 @@
 			];
 
 			// Shown once: the account has no other way to get its first password.
-			triggerToast(`"${newUserName}" created. Temporary password: ${data.temporary_password}`);
+			if (newUserRole === 'Student') {
+				triggerToast(
+					`"${newUserName}" created. Temporary password: ${data.temporary_password} (Student must verify email OTP on first login)`,
+					0
+				);
+			} else {
+				triggerToast(`"${newUserName}" created. Temporary password: ${data.temporary_password}`, 0);
+			}
 
 			newUserName = '';
 			newUserDept = '';
@@ -506,7 +600,12 @@
 				headers: authHeaders()
 			});
 
-			const data = await res.json();
+			let data = { error: '' };
+			try {
+				data = await res.json();
+			} catch (err) {
+				console.warn(err);
+			}
 
 			if (!res.ok) {
 				throw new Error(data.error || 'Failed to delete user');
@@ -1551,7 +1650,9 @@
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
 								Total Students
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+32 this semester</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>Active Student Accounts</span
+							>
 						</div>
 					</div>
 
@@ -1581,9 +1682,11 @@
 						</div>
 						<div class="mt-4">
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-								Total Mentors
+								Total Admins
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+5 this month</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>Active Administrator Accounts</span
+							>
 						</div>
 					</div>
 
@@ -1617,7 +1720,9 @@
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
 								Total Activities
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+110 this week</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>Total Campus Activities</span
+							>
 						</div>
 					</div>
 
@@ -1650,7 +1755,9 @@
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
 								Active Tracks
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">2 new this year</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>Categorized Activity Tracks</span
+							>
 						</div>
 					</div>
 				</section>
@@ -1666,7 +1773,11 @@
 						>
 							<h3 class="text-sm font-bold font-serif text-slate-905">User Management Overview</h3>
 							<button
-								onclick={() => (currentTab = 'User Management')}
+								onclick={() => {
+									currentTab = 'User Management';
+									userFilter = 'All';
+									userSearch = '';
+								}}
 								class="text-[#881B1B] hover:underline text-xs font-bold uppercase tracking-wider"
 							>
 								View All
@@ -1702,7 +1813,7 @@
 														? 'bg-slate-50 text-slate-650 border-slate-200'
 														: 'bg-blue-50 text-blue-700 border-blue-100'}"
 												>
-													{user.role === 'Admin' ? 'Mentor' : user.role}
+													{user.role}
 												</span>
 											</td>
 											<td class="py-4 px-5 text-slate-500 font-semibold">{user.dept}</td>
@@ -1754,14 +1865,17 @@
 								<div class="space-y-1">
 									<span class="font-extrabold text-xs block font-sans">Create User</span>
 									<span class="text-[9px] text-white/80 font-medium block font-sans leading-tight"
-										>Add student or mentor</span
+										>Add student or admin</span
 									>
 								</div>
 							</button>
 
 							<!-- Button 2: Create Activity -->
 							<button
-								onclick={() => (isCreateActivityModalOpen = true)}
+								onclick={() => {
+									currentTab = 'Activity Management';
+									isManageActivityModalOpen = true;
+								}}
 								class="p-5 bg-[#EFECE9] hover:bg-[#E4DFDB] text-slate-800 rounded-[20px] flex flex-col items-center justify-center text-center space-y-2.5 h-[160px] w-full transition duration-200 focus:outline-none"
 							>
 								<!-- Activity graph icon -->
@@ -1865,7 +1979,7 @@
 							<span
 								class="px-2 py-0.5 bg-rose-50 text-rose-705 font-extrabold text-[10px] uppercase rounded-md border border-rose-100"
 							>
-								+ 6 this week
+								Live Feed
 							</span>
 						</div>
 						<button
@@ -1930,7 +2044,7 @@
 					</div>
 				</section>
 			{:else if currentTab === 'Activity Management'}
-				<ActivityManagementView />
+				<ActivityManagementView bind:isActivityModalOpen={isManageActivityModalOpen} />
 			{:else if currentTab === 'Track Management'}
 				<TrackManagementView />
 			{:else if currentTab === 'Announcement Management'}
@@ -1969,16 +2083,18 @@
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
 								Total Students
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+12 this semester</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>Active Student Accounts</span
+							>
 						</div>
 					</div>
 
-					<!-- Card 2: Total Mentors -->
+					<!-- Card 2: Total Admins -->
 					<div
 						class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
 					>
 						<div class="flex items-center justify-between">
-							<span class="text-2xl font-bold font-serif text-slate-900">{totalMentorsCount}</span>
+							<span class="text-2xl font-bold font-serif text-slate-900">{totalAdminsCount}</span>
 							<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
 								<!-- Users icon -->
 								<svg
@@ -1999,18 +2115,20 @@
 						</div>
 						<div class="mt-4">
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-								Total Mentors
+								Total Admins
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">+3 this month</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>Active Administrator Accounts</span
+							>
 						</div>
 					</div>
 
-					<!-- Card 3: Total Admins -->
+					<!-- Card 3: Pending Verification -->
 					<div
 						class="bg-white border border-slate-200 rounded-xl p-6 shadow-xs flex flex-col justify-between hover:shadow-md transition-shadow"
 					>
 						<div class="flex items-center justify-between">
-							<span class="text-2xl font-bold font-serif text-slate-900">{totalAdminsCount}</span>
+							<span class="text-2xl font-bold font-serif text-slate-900">{pendingUsersCount}</span>
 							<div class="p-2.5 rounded-lg bg-red-50 text-red-655 border border-red-100">
 								<!-- Ribbon icon -->
 								<svg
@@ -2031,9 +2149,11 @@
 						</div>
 						<div class="mt-4">
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-								Total Admins
+								Pending Accounts
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">2 new this year</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>Awaiting Verification</span
+							>
 						</div>
 					</div>
 
@@ -2065,7 +2185,9 @@
 							<h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
 								Active Users
 							</h3>
-							<span class="text-[11px] font-bold text-slate-400 mt-1 block">94.7% active rate</span>
+							<span class="text-[11px] font-bold text-slate-400 mt-1 block"
+								>{activeRate}% active rate</span
+							>
 						</div>
 					</div>
 				</section>
@@ -2099,7 +2221,7 @@
 						>
 							<!-- Filter Tabs -->
 							<div class="flex flex-wrap gap-1.5">
-								{#each ['All', 'Student', 'Mentor', 'Admin'] as roleType}
+								{#each ['All', 'Student', 'Admin'] as roleType}
 									<button
 										type="button"
 										onclick={() => (userFilter = roleType)}
@@ -2112,9 +2234,7 @@
 											? 'All Users'
 											: roleType === 'Student'
 												? 'Students'
-												: roleType === 'Mentor'
-													? 'Mentors'
-													: 'Admins'}
+												: 'Admins'}
 									</button>
 								{/each}
 							</div>
@@ -2201,9 +2321,7 @@
 														class="inline-flex items-center px-2 py-0.5 text-[9px] font-bold uppercase rounded-full border
 														{user.displayRole === 'Student'
 															? 'bg-blue-50 text-blue-700 border-blue-100'
-															: user.displayRole === 'Mentor'
-																? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-																: 'bg-rose-50 text-rose-700 border-rose-100'}"
+															: 'bg-rose-50 text-rose-700 border-rose-100'}"
 													>
 														{user.displayRole}
 													</span>
@@ -2236,12 +2354,12 @@
 
 												<!-- Action Buttons -->
 												<td class="py-4 px-5">
-													<div class="flex items-center gap-3 text-slate-400">
+													<div class="flex items-center gap-3">
 														<button
 															type="button"
-															onclick={() => triggerToast(`Viewing stats for ${user.name}...`)}
+															onclick={() => openViewUser(user)}
 															aria-label="View user profile"
-															class="hover:text-[#881B1B] transition-colors p-0.5"
+															class="text-blue-500 hover:text-blue-700 transition-colors p-0.5"
 														>
 															<!-- Eye icon -->
 															<svg
@@ -2266,10 +2384,9 @@
 														</button>
 														<button
 															type="button"
-															onclick={() =>
-																triggerToast(`Edit functionality for ${user.name} is coming soon.`)}
+															onclick={() => openEditUser(user)}
 															aria-label="Edit user details"
-															class="hover:text-blue-600 transition-colors p-0.5"
+															class="text-amber-500 hover:text-amber-700 transition-colors p-0.5"
 														>
 															<!-- Pencil edit icon -->
 															<svg
@@ -2291,7 +2408,7 @@
 															type="button"
 															onclick={() => handleDeleteUser(user)}
 															aria-label="Delete user"
-															class="hover:text-red-650 transition-colors p-0.5"
+															class="text-rose-500 hover:text-rose-700 transition-colors p-0.5"
 														>
 															<!-- Trash delete icon -->
 															<svg
@@ -3681,23 +3798,42 @@
 			{#each toasts as toast (toast.id)}
 				<div
 					transition:slide={{ duration: 150 }}
-					class="p-4 bg-slate-800 border border-slate-700 text-white rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold font-sans"
+					class="p-4 bg-slate-800 border border-slate-700 text-white rounded-xl shadow-2xl flex items-center justify-between gap-3 text-xs font-semibold font-sans min-w-[280px]"
 				>
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke-width="2"
-						stroke="currentColor"
-						class="w-4 h-4 text-emerald-400"
+					<div class="flex items-center gap-2">
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="2"
+							stroke="currentColor"
+							class="w-4 h-4 text-emerald-400 shrink-0"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12Z"
+							/>
+						</svg>
+						<span>{toast.message}</span>
+					</div>
+					<button
+						type="button"
+						onclick={() => dismissToast(toast.id)}
+						class="text-slate-400 hover:text-white transition-colors focus:outline-none p-0.5 rounded-lg hover:bg-slate-700/50 shrink-0"
+						aria-label="Dismiss notification"
 					>
-						<path
-							stroke-linecap="round"
-							stroke-linejoin="round"
-							d="M9 12.75 11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12Z"
-						/>
-					</svg>
-					<span>{toast.message}</span>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							stroke-width="2.5"
+							stroke="currentColor"
+							class="w-3.5 h-3.5"
+						>
+							<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+						</svg>
+					</button>
 				</div>
 			{/each}
 		</div>
@@ -3724,7 +3860,7 @@
 						<div>
 							<h3 class="text-sm font-bold font-serif text-slate-900">Create New User</h3>
 							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-								Register Student or Mentor
+								Register Student or Admin
 							</p>
 						</div>
 						<button
@@ -3774,7 +3910,7 @@
 									class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-850 bg-white focus:outline-none focus:border-slate-355"
 								>
 									<option value="Student">Student</option>
-									<option value="Admin">Mentor</option>
+									<option value="Admin">Admin</option>
 								</select>
 							</div>
 
@@ -3804,7 +3940,7 @@
 									id="new-user-id"
 									type="text"
 									bind:value={newUserId}
-									placeholder={newUserRole === 'Student' ? 'e.g. IT2K24012' : 'e.g. mentor.cs'}
+									placeholder={newUserRole === 'Student' ? 'e.g. IT2K24012' : 'e.g. admin.cs'}
 									required
 									class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355"
 								/>
@@ -3869,6 +4005,275 @@
 							class="px-4 py-2 bg-[#881B1B] hover:bg-[#881B1B]/90 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
 						>
 							{creatingUser ? 'Creating…' : 'Create User'}
+						</button>
+					</div>
+				</form>
+			</div>
+		{/if}
+
+		<!-- View User Details Modal -->
+		{#if isViewUserModalOpen && viewingUser}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				onclick={(e) => {
+					if (e.target === e.currentTarget) isViewUserModalOpen = false;
+				}}
+				transition:fade={{ duration: 150 }}
+				class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+			>
+				<div
+					class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+				>
+					<div
+						class="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/30"
+					>
+						<div>
+							<h3 class="text-sm font-bold font-serif text-slate-900">User Profile Details</h3>
+							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+								ID: {viewingUser.id}
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={() => (isViewUserModalOpen = false)}
+							aria-label="Close modal"
+							class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="w-5 h-5"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="p-6 space-y-1">
+						<div class="flex items-center justify-between py-2.5 border-b border-slate-100">
+							<span class="text-xs font-semibold text-slate-500">Full Name</span>
+							<span class="text-xs font-bold text-slate-900">{viewingUser.name}</span>
+						</div>
+						<div class="flex items-center justify-between py-2.5 border-b border-slate-100">
+							<span class="text-xs font-semibold text-slate-500">Role</span>
+							<span class="text-xs font-bold text-slate-900"
+								>{viewingUser.displayRole || viewingUser.role}</span
+							>
+						</div>
+						{#if viewingUser.email}
+							<div class="flex items-center justify-between py-2.5 border-b border-slate-100">
+								<span class="text-xs font-semibold text-slate-500">Email Address</span>
+								<span class="text-xs font-bold text-slate-900 select-all">{viewingUser.email}</span>
+							</div>
+						{/if}
+						<div class="flex items-center justify-between py-2.5 border-b border-slate-100">
+							<span class="text-xs font-semibold text-slate-500">Department / Batch</span>
+							<span class="text-xs font-bold text-slate-900">{viewingUser.dept}</span>
+						</div>
+						{#if viewingUser.role === 'Student'}
+							<div class="flex items-center justify-between py-2.5 border-b border-slate-100">
+								<span class="text-xs font-semibold text-slate-500">Current Semester</span>
+								<span class="text-xs font-bold text-slate-900">{viewingUser.semester || 1}</span>
+							</div>
+						{/if}
+						<div class="flex items-center justify-between py-2.5">
+							<span class="text-xs font-semibold text-slate-500">Account Status</span>
+							<span
+								class="inline-flex items-center gap-1.5 font-bold {viewingUser.status === 'Active'
+									? 'text-emerald-600'
+									: 'text-slate-400'}"
+							>
+								<span
+									class="w-1.5 h-1.5 rounded-full shrink-0 {viewingUser.status === 'Active'
+										? 'bg-emerald-600'
+										: 'bg-slate-400'}"
+								></span>
+								{viewingUser.status}
+							</span>
+						</div>
+					</div>
+
+					<div
+						class="p-5 border-t border-slate-150 flex items-center justify-end gap-2.5 bg-slate-50/30"
+					>
+						<button
+							type="button"
+							onclick={() => (isViewUserModalOpen = false)}
+							class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none"
+						>
+							Close
+						</button>
+						<button
+							type="button"
+							onclick={() => {
+								if (viewingUser) {
+									isViewUserModalOpen = false;
+									openEditUser(viewingUser);
+								}
+							}}
+							class="px-4 py-2 bg-[#881B1B] hover:bg-[#881B1B]/90 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none"
+						>
+							Edit Profile
+						</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Edit User Modal -->
+		{#if isEditUserModalOpen && editingUser}
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				onclick={(e) => {
+					if (e.target === e.currentTarget) isEditUserModalOpen = false;
+				}}
+				transition:fade={{ duration: 150 }}
+				class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+			>
+				<form
+					onsubmit={handleSaveEditUser}
+					class="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden flex flex-col font-sans"
+				>
+					<div
+						class="p-5 border-b border-slate-150 flex items-center justify-between bg-slate-50/30"
+					>
+						<div>
+							<h3 class="text-sm font-bold font-serif text-slate-900">Edit User Profile</h3>
+							<p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+								ID: {editingUser.id}
+							</p>
+						</div>
+						<button
+							type="button"
+							onclick={() => (isEditUserModalOpen = false)}
+							aria-label="Close modal"
+							class="p-1 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								fill="none"
+								viewBox="0 0 24 24"
+								stroke-width="2"
+								stroke="currentColor"
+								class="w-5 h-5"
+							>
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+
+					<div class="p-6 space-y-4 font-sans">
+						<div class="flex flex-col gap-1.5">
+							<label
+								for="edit-name"
+								class="text-[10px] font-extrabold text-slate-650 tracking-wider">FULL NAME *</label
+							>
+							<input
+								id="edit-name"
+								type="text"
+								bind:value={editUserName}
+								required
+								class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355"
+							/>
+						</div>
+
+						<div class="flex flex-col gap-1.5">
+							<label
+								for="edit-email"
+								class="text-[10px] font-extrabold text-slate-650 tracking-wider"
+								>EMAIL ADDRESS *</label
+							>
+							<input
+								id="edit-email"
+								type="email"
+								bind:value={editUserEmail}
+								required
+								class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355"
+							/>
+						</div>
+
+						<div class="flex flex-col gap-1.5">
+							<label
+								for="edit-dept"
+								class="text-[10px] font-extrabold text-slate-650 tracking-wider"
+								>DEPARTMENT / BATCH *</label
+							>
+							<input
+								id="edit-dept"
+								type="text"
+								bind:value={editUserDept}
+								required
+								class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-800 focus:outline-none focus:border-slate-355"
+							/>
+						</div>
+
+						{#if editingUser.role === 'Student'}
+							<div class="grid grid-cols-2 gap-4">
+								<div class="flex flex-col gap-1.5">
+									<label
+										for="edit-semester"
+										class="text-[10px] font-extrabold text-slate-650 tracking-wider"
+										>SEMESTER *</label
+									>
+									<select
+										id="edit-semester"
+										bind:value={editUserSemester}
+										class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-850 bg-white focus:outline-none focus:border-slate-355"
+									>
+										{#each Array.from({ length: 12 }, (_, i) => i + 1) as sem}
+											<option value={sem}>Semester {sem}</option>
+										{/each}
+									</select>
+								</div>
+
+								<div class="flex flex-col gap-1.5">
+									<label
+										for="edit-status"
+										class="text-[10px] font-extrabold text-slate-650 tracking-wider">STATUS</label
+									>
+									<select
+										id="edit-status"
+										bind:value={editUserStatus}
+										class="px-3 py-2 border border-slate-200 rounded-lg text-xs text-slate-850 bg-white focus:outline-none focus:border-slate-355"
+									>
+										<option value="Active">Active</option>
+										<option value="Inactive">Inactive</option>
+										<option value="Pending">Pending</option>
+									</select>
+								</div>
+							</div>
+						{/if}
+
+						{#if editUserError}
+							<div
+								class="p-3 bg-red-50 text-red-700 text-xs font-semibold rounded-lg border border-red-100"
+							>
+								{editUserError}
+							</div>
+						{/if}
+					</div>
+
+					<div
+						class="p-5 border-t border-slate-150 flex items-center justify-end gap-2.5 bg-slate-50/30"
+					>
+						<button
+							type="button"
+							onclick={() => (isEditUserModalOpen = false)}
+							class="px-4 py-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none"
+						>
+							Cancel
+						</button>
+						<button
+							type="submit"
+							disabled={editingUserSubmit}
+							class="px-4 py-2 bg-[#881B1B] hover:bg-[#881B1B]/90 text-white font-bold text-xs uppercase rounded-lg transition-colors focus:outline-none disabled:opacity-50"
+						>
+							{editingUserSubmit ? 'Saving…' : 'Save Changes'}
 						</button>
 					</div>
 				</form>

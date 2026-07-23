@@ -50,4 +50,46 @@ func ConnectDB() {
 		log.Fatalf("Failed to run database migrations: %v", err)
 	}
 	log.Println("Database migration completed.")
+
+	// Safe data migration: backfill coordinator_id from matching admin Name if it is empty/null
+	var admins []models.Admin
+	if err := DB.Find(&admins).Error; err == nil {
+		for _, admin := range admins {
+			if err := DB.Model(&models.Activity{}).
+				Where("coordinator = ? AND (coordinator_id = ? OR coordinator_id IS NULL)", admin.Name, "").
+				Update("coordinator_id", admin.AdminID).Error; err != nil {
+				log.Printf("Warning: Failed to backfill coordinator_id for admin %s: %v", admin.AdminID, err)
+			}
+		}
+	}
+
+	// Safe data migration: backfill track_id for existing activities if null or 0
+	var unassignedCount int64
+	if err := DB.Model(&models.Activity{}).Where("track_id IS NULL OR track_id = 0").Count(&unassignedCount).Error; err == nil && unassignedCount > 0 {
+		var skillTrack, personalityTrack models.Track
+		DB.Where("LOWER(name) = ?", "skill building").FirstOrCreate(&skillTrack, models.Track{
+			Name: "Skill Building", Description: "Technical and vocational activities that develop practical competencies.", Status: "Active",
+		})
+		DB.Where("LOWER(name) = ?", "personality development").FirstOrCreate(&personalityTrack, models.Track{
+			Name: "Personality Development", Description: "Activities focused on personal growth, communication, and leadership skills.", Status: "Active",
+		})
+
+		if skillTrack.ID != 0 {
+			DB.Model(&models.Activity{}).
+				Where("(track_id IS NULL OR track_id = 0) AND UPPER(category) IN ?", []string{"TECHNICAL", "RESEARCH", "SPORTS", "CULTURAL"}).
+				Update("track_id", skillTrack.ID)
+		}
+		if personalityTrack.ID != 0 {
+			DB.Model(&models.Activity{}).
+				Where("track_id IS NULL OR track_id = 0").
+				Update("track_id", personalityTrack.ID)
+		}
+	}
+
+	// Safe data migration: existing verified students predate the status column
+	// (whose default is "Pending"), so mark them Active. This keeps the super
+	// admin registry from reporting already-active accounts as Pending.
+	DB.Model(&models.Student{}).
+		Where("is_verified = ? AND status = ?", true, "Pending").
+		Update("status", "Active")
 }

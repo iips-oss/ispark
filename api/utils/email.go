@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/smtp"
 	"os"
+	"regexp"
+	"strings"
 )
 
 // GenerateOTP generates a cryptographically secure 6-digit numeric string
@@ -62,37 +64,14 @@ func SendOTP(toEmail, otpCode, purpose string) error {
 	return nil
 }
 
-func SendEmail(to, subject, body string) error {
-	smtpHost := os.Getenv("SMTP_HOST")
-	smtpPort := os.Getenv("SMTP_PORT")
-	smtpUser := os.Getenv("SMTP_USER")
-	smtpPass := os.Getenv("SMTP_PASS")
-	smtpSender := os.Getenv("SMTP_SENDER")
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
-	// Fallback to console logging if SMTP setup is missing
-	if smtpHost == "" || smtpUser == "" || smtpPass == "" {
-		log.Printf("\n--- [MOCK EMAIL SENDER] ---\nTo: %s\nSubject: %s\nBody: %s\n----------------------------\n", to, subject, body)
-		return nil
-	}
+// ValidateEmail checks if the email matches a realistic format.
+func ValidateEmail(email string) bool {
+	return emailRegex.MatchString(email)
+}
 
-	msg := []byte(
-		"From: iSpark <" + smtpSender + ">\r\n" +
-			"To: " + to + "\r\n" +
-			"Subject: " + subject + "\r\n" +
-			"MIME-Version: 1.0\r\n" +
-			"Content-Type: text/plain; charset=UTF-8\r\n" +
-			"\r\n" +
-			body + "\r\n",
-	)
-
-	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
-	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpSender, []string{to}, msg)
-	if err != nil {
-		log.Printf("Failed to send real email (falling back to console print): %v", err)
-		log.Printf("\n--- [FALLBACK EMAIL SENDER] ---\nTo: %s\nSubject: %s\nBody: %s\n--------------------------------\n", to, subject, body)
-		return nil
-	}
-
-	log.Printf("Email successfully sent to %s", to)
-	return nil
+// NormalizeEmail trims spaces and lowercases the email.
+func NormalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
