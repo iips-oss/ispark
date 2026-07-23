@@ -69,13 +69,21 @@ func Register(c *fiber.Ctx) error {
 	}
 
 	// Basic Validation
-	if input.Name == "" || input.RollNo == "" || input.CourseName == "" || input.Semester <= 0 ||
+	if input.Name == "" || input.RollNo == "" || input.CourseName == "" || input.Semester < 1 || input.Semester > 10 ||
 		input.ContactNo == "" || input.EmailID == "" || input.EnrollmentNo == "" ||
 		input.Password == "" || input.ConfirmPassword == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "All fields are required and semester must be greater than 0",
+			"error": "All fields are required and semester must be between 1 and 10",
 		})
 	}
+
+	canonicalCourse, validCourse := models.NormalizeCourseName(input.CourseName)
+	if !validCourse {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Course must be one of the supported programmes",
+		})
+	}
+	input.CourseName = canonicalCourse
 
 	if input.Password != input.ConfirmPassword {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{

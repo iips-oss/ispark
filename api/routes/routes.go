@@ -88,4 +88,35 @@ func SetupRoutes(app *fiber.App) {
 	platform.Put("/settings", controllers.UpdatePlatformSettings)
 	platform.Put("/settings/:key", controllers.UpdatePlatformSetting)
 
+	// Reports center
+	platform.Get("/reports/summary", controllers.GetReportsSummary)
+	platform.Get("/reports/templates", controllers.GetReportTemplates)
+	platform.Get("/reports/export/counts", controllers.GetExportCounts)
+	platform.Get("/reports/export", controllers.ExportData)
+	platform.Get("/reports/audit", controllers.GetReportAuditLog)
+	platform.Get("/reports/institutional", controllers.GetInstitutionalOverview)
+	platform.Get("/reports/filters", controllers.GetReportFilters)
+
+	// Reports center: scheduled reports
+	platform.Get("/reports/scheduled", controllers.GetScheduledReports)
+	platform.Post("/reports/scheduled", controllers.CreateScheduledReport)
+	platform.Put("/reports/scheduled/:id", controllers.UpdateScheduledReport)
+	platform.Delete("/reports/scheduled/:id", controllers.DeleteScheduledReport)
+
+	// Reports center: generated reports
+	platform.Get("/reports", controllers.GetGeneratedReports)
+	platform.Post("/reports/generate", controllers.GenerateReport)
+	platform.Get("/reports/:id", controllers.GetReportDetail)
+	platform.Get("/reports/:id/download", controllers.DownloadReport)
+	platform.Delete("/reports/:id", controllers.DeleteReport)
+
+	// Announcement management
+	platform.Get("/announcements/stats", controllers.GetAnnouncementStats)
+	platform.Get("/announcements", controllers.GetAnnouncements)
+	platform.Post("/announcements", controllers.CreateAnnouncement)
+	platform.Get("/announcements/:id", controllers.GetAnnouncement)
+	platform.Put("/announcements/:id", controllers.UpdateAnnouncement)
+	platform.Delete("/announcements/:id", controllers.DeleteAnnouncement)
+	platform.Post("/announcements/:id/publish", controllers.PublishAnnouncement)
+
 }

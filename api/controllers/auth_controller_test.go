@@ -126,6 +126,14 @@ func TestAuthFlow(t *testing.T) {
 		if respBody["email"] != testStudentEmail {
 			t.Errorf("Expected registered email to be %s, got %v", testStudentEmail, respBody["email"])
 		}
+
+		var registered models.Student
+		if err := config.DB.First(&registered, "email_id = ?", testStudentEmail).Error; err != nil {
+			t.Fatalf("load registered student: %v", err)
+		}
+		if registered.CourseName != models.CourseMCA5Yr {
+			t.Errorf("expected canonical course %q, got %q", models.CourseMCA5Yr, registered.CourseName)
+		}
 	})
 
 	t.Run("RegisterStudent_DuplicateConflict", func(t *testing.T) {
@@ -184,7 +192,7 @@ func TestAuthFlow(t *testing.T) {
 		regPayload := map[string]interface{}{
 			"name":             "Alice Smith",
 			"roll_no":          "67890",
-			"course_name":      "BTech",
+			"course_name":      models.CourseMTechCS,
 			"semester":         4,
 			"contact_no":       "9876543211",
 			"email_id":         "alice@example.com",
@@ -368,4 +376,52 @@ func TestAuthFlow(t *testing.T) {
 			t.Errorf("Expected profile email to be alice@example.com, got %v", studentData["email_id"])
 		}
 	})
+}
+
+func TestRegisterRejectsInvalidAcademicDetails(t *testing.T) {
+	SetupTestDB(t)
+	app := fiber.New()
+	routes.SetupRoutes(app)
+
+	base := map[string]interface{}{
+		"name":             "Academic Validation",
+		"roll_no":          "ACA001",
+		"course_name":      models.CourseMCA5Yr,
+		"semester":         1,
+		"contact_no":       "9876543299",
+		"email_id":         "academic.validation@example.com",
+		"enrollment_no":    "EN-ACA001",
+		"password":         "SecurePassword123!",
+		"confirm_password": "SecurePassword123!",
+	}
+
+	tests := []struct {
+		name  string
+		field string
+		value interface{}
+	}{
+		{"unsupported course", "course_name", "Unknown Programme"},
+		{"semester above range", "semester", 11},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			payload := make(map[string]interface{}, len(base))
+			for key, value := range base {
+				payload[key] = value
+			}
+			payload[test.field] = test.value
+
+			body, _ := json.Marshal(payload)
+			req := httptest.NewRequest("POST", "/api/auth/register", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("register: %v", err)
+			}
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("expected 400, got %d", resp.StatusCode)
+			}
+		})
+	}
 }

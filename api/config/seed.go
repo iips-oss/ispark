@@ -40,6 +40,10 @@ func SeedDevData() {
 		return
 	}
 
+	// Legacy course-name normalisation runs unconditionally at boot as a data
+	// migration (see config.RunMigrations), so it is intentionally not repeated
+	// here. Seeded students already use the canonical models.Course* constants.
+
 	// Tracks are seeded before activities so each activity can be linked to its
 	// track via Activity.TrackID (the normalized relationship the Track
 	// Management activity counts are derived from).
@@ -70,8 +74,74 @@ func SeedDevData() {
 		return
 	}
 
+	if err := seedAnnouncements(); err != nil {
+		log.Printf("Seeding announcements failed: %v", err)
+		return
+	}
+
 	log.Printf("Demo data ready: %d students, %d activities. Every account's password is %q.",
 		len(students), len(activities), DevPassword)
+}
+
+// ---------------------------------------------------------------------------
+// Announcements
+// ---------------------------------------------------------------------------
+
+func seedAnnouncements() error {
+	today := time.Now().In(time.FixedZone("Asia/Kolkata", 5*60*60+30*60))
+	today = time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
+	announcements := []models.Announcement{
+		{
+			Title:       "Mid-Semester Activity Submission Deadline",
+			Description: "Submit extracurricular activity proof before the deadline to receive semester credit.",
+			Category:    "Academic",
+			Audience:    "Students",
+			Priority:    "High",
+			PublishDate: today.AddDate(0, 0, -7),
+			ExpiryDate:  today.AddDate(0, 0, 30),
+			Status:      "active",
+		},
+		{
+			Title:       "Mentor Orientation Schedule",
+			Description: "New mentor orientation sessions are scheduled for next week.",
+			Category:    "Events",
+			Audience:    "Mentors",
+			Priority:    "Medium",
+			PublishDate: today.AddDate(0, 0, 7),
+			ExpiryDate:  today.AddDate(0, 0, 45),
+			Status:      "scheduled",
+		},
+		{
+			Title:       "Updated Credit Policy Guidelines",
+			Description: "Review the revised credit distribution policy for the current academic year.",
+			Category:    "General",
+			Audience:    "All Users",
+			Priority:    "Low",
+			PublishDate: today.AddDate(0, 0, 14),
+			ExpiryDate:  today.AddDate(0, 0, 60),
+			Status:      "draft",
+		},
+		{
+			Title:       "Activity Registration Reminder",
+			Description: "The previous activity registration window has closed.",
+			Category:    "Activities",
+			Audience:    "Students",
+			Priority:    "Medium",
+			PublishDate: today.AddDate(0, 0, -60),
+			ExpiryDate:  today.AddDate(0, 0, -5),
+			Status:      "expired",
+		},
+	}
+
+	for _, announcement := range announcements {
+		var existing models.Announcement
+		if err := DB.Where(models.Announcement{Title: announcement.Title}).
+			Attrs(announcement).
+			FirstOrCreate(&existing).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -234,14 +304,14 @@ func seedAdmins(hashedPassword string) error {
 
 func seedStudents(hashedPassword string) ([]models.Student, error) {
 	students := []models.Student{
-		{RollNo: "IT2K24011", Name: "Rahul Sharma", CourseName: "Computer Science", Semester: 6, ContactNo: "9876543210", EmailID: "rahul.sharma@iips.edu", EnrollmentNo: "EN-IT2K24011"},
-		{RollNo: "IT2K24012", Name: "Sneha Kumar", CourseName: "Computer Science", Semester: 6, ContactNo: "9876543211", EmailID: "sneha.kumar@iips.edu", EnrollmentNo: "EN-IT2K24012"},
-		{RollNo: "IT2K24013", Name: "Arjun Desai", CourseName: "Information Technology", Semester: 4, ContactNo: "9876543212", EmailID: "arjun.desai@iips.edu", EnrollmentNo: "EN-IT2K24013"},
-		{RollNo: "IT2K24014", Name: "Kavya Krishnan", CourseName: "Computer Science", Semester: 4, ContactNo: "9876543213", EmailID: "kavya.krishnan@iips.edu", EnrollmentNo: "EN-IT2K24014"},
-		{RollNo: "IT2K24015", Name: "Vikram Singh", CourseName: "Information Technology", Semester: 2, ContactNo: "9876543214", EmailID: "vikram.singh@iips.edu", EnrollmentNo: "EN-IT2K24015"},
-		{RollNo: "IT2K25001", Name: "Priya Nair", CourseName: "MCA", Semester: 2, ContactNo: "9876543215", EmailID: "priya.nair@iips.edu", EnrollmentNo: "EN-IT2K25001"},
-		{RollNo: "IT2K25002", Name: "Rohan Verma", CourseName: "MCA", Semester: 2, ContactNo: "9876543216", EmailID: "rohan.verma@iips.edu", EnrollmentNo: "EN-IT2K25002"},
-		{RollNo: "IT2K25003", Name: "Meera Iyer", CourseName: "MCA", Semester: 4, ContactNo: "9876543217", EmailID: "meera.iyer@iips.edu", EnrollmentNo: "EN-IT2K25003"},
+		{RollNo: "IT2K24011", Name: "Rahul Sharma", CourseName: models.CourseMTechCS, Semester: 6, ContactNo: "9876543210", EmailID: "rahul.sharma@iips.edu", EnrollmentNo: "EN-IT2K24011"},
+		{RollNo: "IT2K24012", Name: "Sneha Kumar", CourseName: models.CourseMTechCS, Semester: 6, ContactNo: "9876543211", EmailID: "sneha.kumar@iips.edu", EnrollmentNo: "EN-IT2K24012"},
+		{RollNo: "IT2K24013", Name: "Arjun Desai", CourseName: models.CourseMTechIT, Semester: 4, ContactNo: "9876543212", EmailID: "arjun.desai@iips.edu", EnrollmentNo: "EN-IT2K24013"},
+		{RollNo: "IT2K24014", Name: "Kavya Krishnan", CourseName: models.CourseMTechCS, Semester: 4, ContactNo: "9876543213", EmailID: "kavya.krishnan@iips.edu", EnrollmentNo: "EN-IT2K24014"},
+		{RollNo: "IT2K24015", Name: "Vikram Singh", CourseName: models.CourseMTechIT, Semester: 2, ContactNo: "9876543214", EmailID: "vikram.singh@iips.edu", EnrollmentNo: "EN-IT2K24015"},
+		{RollNo: "IT2K25001", Name: "Priya Nair", CourseName: models.CourseMCA5Yr, Semester: 2, ContactNo: "9876543215", EmailID: "priya.nair@iips.edu", EnrollmentNo: "EN-IT2K25001"},
+		{RollNo: "IT2K25002", Name: "Rohan Verma", CourseName: models.CourseMCA5Yr, Semester: 2, ContactNo: "9876543216", EmailID: "rohan.verma@iips.edu", EnrollmentNo: "EN-IT2K25002"},
+		{RollNo: "IT2K25003", Name: "Meera Iyer", CourseName: models.CourseMCA5Yr, Semester: 4, ContactNo: "9876543217", EmailID: "meera.iyer@iips.edu", EnrollmentNo: "EN-IT2K25003"},
 	}
 
 	seeded := make([]models.Student, 0, len(students))
