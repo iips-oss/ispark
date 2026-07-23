@@ -507,7 +507,9 @@
 					{admin}
 					onSave={(updatedAdmin, updatedStats) => {
 						admin = updatedAdmin;
-						stats = updatedStats;
+						if (updatedStats !== undefined) {
+							stats = updatedStats;
+						}
 					}}
 					onCancel={() => (currentTab = 'Profile')}
 				/>

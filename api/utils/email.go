@@ -75,3 +75,44 @@ func ValidateEmail(email string) bool {
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
+
+// SendEmail sends an arbitrary email with the given subject and plain-text body.
+// If SMTP environment variables are not configured, the message is printed to
+// the console so that development and test environments work without a mail server.
+func SendEmail(toEmail, subject, body string) error {
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USER")
+	smtpPass := os.Getenv("SMTP_PASS")
+	smtpSender := os.Getenv("SMTP_SENDER")
+
+	// Fallback: log to console when SMTP is not configured (dev/test)
+	if smtpHost == "" || smtpUser == "" || smtpPass == "" {
+		log.Printf(
+			"\n--- [MOCK EMAIL SENDER] ---\nTo: %s\nSubject: %s\nBody:\n%s\n----------------------------\n",
+			toEmail, subject, body,
+		)
+		return nil
+	}
+
+	msg := []byte(
+		"From: iSPARC <" + smtpSender + ">\r\n" +
+			"To: " + toEmail + "\r\n" +
+			"Subject: " + subject + "\r\n" +
+			"MIME-Version: 1.0\r\n" +
+			"Content-Type: text/plain; charset=UTF-8\r\n" +
+			"\r\n" +
+			body + "\r\n",
+	)
+
+	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+	if err := smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpSender, []string{toEmail}, msg); err != nil {
+		// SMTP is configured but the send failed: surface the error so callers
+		// can report failure instead of falsely reporting success.
+		log.Printf("SMTP send to %s failed: %v", toEmail, err)
+		return err
+	}
+
+	log.Printf("Email successfully sent to %s (subject: %q)", toEmail, subject)
+	return nil
+}

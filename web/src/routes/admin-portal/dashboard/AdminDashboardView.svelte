@@ -1,5 +1,55 @@
 <script lang="ts">
 	import { fade, slide } from 'svelte/transition';
+	import { onMount } from 'svelte';
+	import { API_BASE_URL } from '$lib/config';
+
+	interface RecentActivity {
+		name: string;
+		regNo: string;
+		activity: string;
+		date: string;
+		hours: string;
+		status: string;
+	}
+
+	interface PendingCertificate {
+		id: string;
+		student: string;
+		regNo: string;
+		type: string;
+		date: string;
+		priority: string;
+		file: string;
+		credits: number;
+		name: string;
+	}
+
+	interface RawActivity {
+		Student?: { Name?: string };
+		student?: { name?: string };
+		StudentRollNo?: string;
+		student_roll_no?: string;
+		ActivityName?: string;
+		activity_name?: string;
+		CreatedAt?: string;
+		created_at?: string;
+		Credits?: number;
+		credits?: number;
+		Status?: string;
+		status?: string;
+	}
+
+	interface RawCertificate {
+		id: number | string;
+		student?: { name?: string };
+		student_roll_no: string;
+		activity_category: string;
+		created_at: string;
+		proof_url?: string;
+		credits: number;
+		activity_name: string;
+		status: string;
+	}
 
 	// Props using Svelte 5 runes
 	let {
@@ -9,96 +59,81 @@
 	} = $props();
 
 	// Active State for Interactive elements
-	let pendingReviewsCount = $state(7);
-	let activitiesMonitoredCount = $state(138);
+	let stats = $state({
+		total_students: 0,
+		active_students: 0,
+		pending_reviews: 0,
+		average_credits: 0,
+		verification_rate: 0
+	});
 
-	// Mock Certificate Data State
-	let pendingCertificates = $state([
-		{
-			id: 'CERT-2024-0801',
-			student: 'Arjun Mehta',
-			regNo: 'REG2021001',
-			type: 'NPTEL Online Certification',
-			date: '24 Jun 2026',
-			priority: 'High',
-			file: 'nptel_dbms_certificate.pdf',
-			credits: 15
-		},
-		{
-			id: 'CERT-2024-0887',
-			student: 'Priya Nair',
-			regNo: 'REG2021015',
-			type: 'AWS Cloud Practitioner',
-			date: '23 Jun 2026',
-			priority: 'High',
-			file: 'aws_cloud_practitioner.pdf',
-			credits: 20
-		},
-		{
-			id: 'CERT-2024-0882',
-			student: 'Kavya Krishnan',
-			regNo: 'REG2022008',
-			type: 'Industrial Training Certificate',
-			date: '21 Jun 2026',
-			priority: 'Normal',
-			file: 'tcs_internship_completion.pdf',
-			credits: 30
-		},
-		{
-			id: 'CERT-2024-0879',
-			student: 'Dev Sharma',
-			regNo: 'REG2022014',
-			type: 'Coursera Data Science',
-			date: '18 Jun 2026',
-			priority: 'Normal',
-			file: 'coursera_ml_specialization.pdf',
-			credits: 10
-		}
-	]);
+	// Mock Certificate Data State -> Now dynamic
+	let pendingCertificates = $state<PendingCertificate[]>([]);
 
 	// Recent Student Activities (Read-only list, matching image)
-	const recentActivities = [
-		{
-			name: 'Rahul Sharma',
-			regNo: 'EN2024001',
-			activity: 'Community Service - Beach Cleanup',
-			date: 'Jun 25, 2026',
-			hours: '4h',
-			status: 'Completed'
-		},
-		{
-			name: 'Priya Patel',
-			regNo: 'EN2024012',
-			activity: 'Research Project - AI Ethics',
-			date: 'Jun 24, 2026',
-			hours: '12h',
-			status: 'In Progress'
-		},
-		{
-			name: 'Arjun Desai',
-			regNo: 'EN2024008',
-			activity: 'Leadership Workshop',
-			date: 'Jun 23, 2026',
-			hours: '3h',
-			status: 'Pending Review'
-		},
-		{
-			name: 'Sneha Kumar',
-			regNo: 'EN2024015',
-			activity: 'Internship - Tech Startup',
-			date: 'Jun 22, 2026',
-			hours: '80h',
-			status: 'Completed'
-		},
-		{
-			name: 'Vikram Singh',
-			regNo: 'EN2024003',
-			activity: 'Sports Event Coordination',
-			date: 'Jun 21, 2026',
-			hours: '6h',
-			status: 'In Progress'
+	let recentActivities = $state<RecentActivity[]>([]);
+
+	onMount(async () => {
+		const token = localStorage.getItem('admin_token');
+		if (!token) return;
+
+		try {
+			const headers = { Authorization: `Bearer ${token}` };
+
+			// 1. Fetch Stats
+			const statsRes = await fetch(`${API_BASE_URL}/api/admin/dashboard/stats`, { headers });
+			if (statsRes.ok) {
+				stats = await statsRes.json();
+			}
+
+			// 2. Fetch Recent Activities
+			const recentRes = await fetch(`${API_BASE_URL}/api/admin/dashboard/recent-activities`, {
+				headers
+			});
+			if (recentRes.ok) {
+				const data = await recentRes.json();
+				recentActivities = (data.recent_activities || []).map((c: RawActivity) => ({
+					name: c.Student?.Name || c.student?.name || 'Unknown',
+					regNo: c.StudentRollNo || c.student_roll_no,
+					activity: c.ActivityName || c.activity_name,
+					date: new Date(c.CreatedAt || c.created_at || '').toLocaleDateString('en-GB'),
+					hours: `${c.Credits || c.credits} cr`,
+					status:
+						(c.Status || c.status) === 'Approved'
+							? 'Completed'
+							: (c.Status || c.status) === 'Pending'
+								? 'Pending Review'
+								: 'Rejected'
+				}));
+			}
+
+			// 3. Fetch Pending Certificates for the preview modal
+			const certsRes = await fetch(`${API_BASE_URL}/api/admin/certificates`, { headers }); // Or wherever your queue endpoint is
+			if (certsRes.ok) {
+				const data = await certsRes.json();
+
+				pendingCertificates = (data.certificates || [])
+					.filter((c: RawCertificate) => c.status === 'Pending')
+					.map((c: RawCertificate) => ({
+						id: String(c.id),
+						student: c.student?.name || 'Unknown',
+						regNo: c.student_roll_no,
+						type: c.activity_category,
+						date: new Date(c.created_at).toLocaleDateString('en-GB', {
+							day: '2-digit',
+							month: 'short',
+							year: 'numeric'
+						}),
+						priority: 'Normal', // Static for now
+						file: c.proof_url || 'view_certificate',
+						credits: c.credits,
+						name: c.activity_name
+					}));
+			}
+		} catch (e) {
+			console.error('Failed to load dashboard data:', e);
 		}
-	];
+	});
 
 	// Modal state
 	let activeCertificate = $state<(typeof pendingCertificates)[0] | null>(null);
@@ -121,28 +156,60 @@
 		}, 3000);
 	}
 
-	function handleApprove(id: string) {
+	async function handleApprove(id: string) {
 		const cert = pendingCertificates.find((c) => c.id === id);
-		if (cert) {
-			pendingCertificates = pendingCertificates.filter((c) => c.id !== id);
-			pendingReviewsCount = Math.max(0, pendingReviewsCount - 1);
-			activitiesMonitoredCount += 1;
-			triggerToast(`Approved certificate for ${cert.student} successfully!`);
-			if (activeCertificate?.id === id) {
-				closeModal();
+		if (!cert) return;
+
+		try {
+			const token = localStorage.getItem('admin_token');
+			const res = await fetch(`${API_BASE_URL}/api/admin/certificates/${id}/approve`, {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			if (res.ok) {
+				pendingCertificates = pendingCertificates.filter((c) => c.id !== id);
+				stats.pending_reviews = Math.max(0, stats.pending_reviews - 1);
+				triggerToast(`Approved certificate for ${cert.student} successfully!`);
+				if (activeCertificate?.id === id) {
+					closeModal();
+				}
+			} else {
+				triggerToast('Failed to approve certificate', 'danger');
 			}
+		} catch {
+			triggerToast('Failed to approve certificate', 'danger');
 		}
 	}
 
-	function handleReject(id: string) {
+	async function handleReject(id: string) {
 		const cert = pendingCertificates.find((c) => c.id === id);
-		if (cert) {
-			pendingCertificates = pendingCertificates.filter((c) => c.id !== id);
-			pendingReviewsCount = Math.max(0, pendingReviewsCount - 1);
-			triggerToast(`Rejected certificate for ${cert.student}.`, 'danger');
-			if (activeCertificate?.id === id) {
-				closeModal();
+		if (!cert) return;
+
+		const reason = prompt('Reason for rejection:');
+		if (reason === null) return;
+
+		try {
+			const token = localStorage.getItem('admin_token');
+			const res = await fetch(`${API_BASE_URL}/api/admin/certificates/${id}/reject`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					Authorization: `Bearer ${token}`
+				},
+				body: JSON.stringify({ reason })
+			});
+			if (res.ok) {
+				pendingCertificates = pendingCertificates.filter((c) => c.id !== id);
+				stats.pending_reviews = Math.max(0, stats.pending_reviews - 1);
+				triggerToast(`Rejected certificate for ${cert.student}.`, 'danger');
+				if (activeCertificate?.id === id) {
+					closeModal();
+				}
+			} else {
+				triggerToast('Failed to reject certificate', 'danger');
 			}
+		} catch {
+			triggerToast('Failed to reject certificate', 'danger');
 		}
 	}
 
@@ -211,7 +278,7 @@
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
 		<div class="flex items-center justify-between">
-			<span class="text-2xl font-bold font-serif text-slate-900">24</span>
+			<span class="text-2xl font-bold font-serif text-slate-900">{stats.total_students}</span>
 			<div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 border border-blue-100">
 				<!-- People Group Icon -->
 				<svg
@@ -243,7 +310,7 @@
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
 		<div class="flex items-center justify-between">
-			<span class="text-2xl font-bold font-serif text-slate-900">{pendingReviewsCount}</span>
+			<span class="text-2xl font-bold font-serif text-slate-900">{stats.pending_reviews}</span>
 			<div class="p-2.5 rounded-lg bg-amber-50 text-amber-600 border border-amber-100">
 				<!-- File Icon -->
 				<svg
@@ -279,7 +346,7 @@
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
 		<div class="flex items-center justify-between">
-			<span class="text-2xl font-bold font-serif text-slate-900">{activitiesMonitoredCount}</span>
+			<span class="text-2xl font-bold font-serif text-slate-900">{stats.active_students}</span>
 			<div class="p-2.5 rounded-lg bg-purple-50 text-purple-600 border border-purple-100">
 				<!-- Wave Chart Icon -->
 				<svg
@@ -299,7 +366,7 @@
 			</div>
 		</div>
 		<div class="mt-4">
-			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Total Activities</h3>
+			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Active Students</h3>
 			<p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
 				+12 this week
 			</p>
@@ -311,7 +378,9 @@
 		class="bg-white p-5 rounded-xl border border-slate-200 flex flex-col justify-between shadow-xs hover:shadow-md transition-shadow duration-200"
 	>
 		<div class="flex items-center justify-between">
-			<span class="text-2xl font-bold font-serif text-slate-900">81.3%</span>
+			<span class="text-2xl font-bold font-serif text-slate-900"
+				>{(stats?.average_credits ?? 0).toFixed(1)}</span
+			>
 			<div class="p-2.5 rounded-lg bg-teal-50 text-teal-600 border border-teal-100">
 				<!-- Arrow Up Icon -->
 				<svg
@@ -331,7 +400,7 @@
 			</div>
 		</div>
 		<div class="mt-4">
-			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Verification Rate</h3>
+			<h3 class="text-xs font-bold text-slate-800 tracking-wide font-sans">Average Credits</h3>
 			<p class="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
 				+4.2% from last batch
 			</p>

@@ -97,5 +97,6 @@ type Student struct {
 	CreditsEarned       int    `gorm:"-" json:"credits_earned"`
 	ActivityCount       int    `gorm:"-" json:"activity_count"`
 	PendingCertificates int    `gorm:"-" json:"pending_certificates"`
+	TotalCertificates   int    `gorm:"-" json:"total_certificates"`
 	EngagementStatus    string `gorm:"-" json:"engagement_status"`
 }

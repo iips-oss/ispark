@@ -72,6 +72,21 @@
 		return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 	}
 
+	function formatBatch(batch: string | null | undefined): string {
+		if (!batch || batch.trim() === '') {
+			return 'Not Assigned';
+		}
+		const batchRegex = /^([a-zA-Z]+)2K(\d{2})$/i;
+		const match = batch.match(batchRegex);
+
+		if (match) {
+			const department = match[1].toUpperCase(); // "IT"
+			const year = match[2]; // "24"
+			return `${department} - Class of 20${year}`;
+		}
+		return batch.toUpperCase();
+	}
+
 	function openChangePassword() {
 		currentPassword = '';
 		newPassword = '';
@@ -398,7 +413,7 @@
 							<div class="flex items-center gap-1.5">
 								<span class="text-slate-500 font-semibold">Assigned Batch:</span>
 								<span class="font-bold text-slate-800">
-									{admin.assigned_batch || 'All Batches (Global)'}
+									{formatBatch(admin.assigned_batch)}
 								</span>
 							</div>
 						</div>
