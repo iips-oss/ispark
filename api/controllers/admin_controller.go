@@ -106,6 +106,9 @@ func AdminLogin(c *fiber.Ctx) error {
 	if !utils.CheckPasswordHash(input.Password, admin.Password) {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
+	if admin.Status == "Inactive" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Your account is inactive. Please contact the administrator."})
+	}
 	accessToken, err := utils.GenerateAccessToken(admin.AdminID, admin.Email, admin.Role)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate access token"})

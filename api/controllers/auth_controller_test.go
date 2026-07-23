@@ -17,6 +17,7 @@ import (
 	"github.com/iips-oss/ispark/api/config"
 	"github.com/iips-oss/ispark/api/models"
 	"github.com/iips-oss/ispark/api/routes"
+	"github.com/iips-oss/ispark/api/utils"
 	"gorm.io/gorm"
 )
 
@@ -424,4 +425,494 @@ func TestRegisterRejectsInvalidAcademicDetails(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInactiveAndFirstLoginFlows(t *testing.T) {
+	// Set test environment variables
+	t.Setenv("JWT_SECRET", strings.Repeat("test-jwt-", 4))
+	t.Setenv("JWT_REFRESH_SECRET", strings.Repeat("test-refresh-jwt-", 4))
+
+	// Initialize test DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Failed to connect to DB: %v", err)
+	}
+	err = db.AutoMigrate(&models.Student{}, &models.OTP{}, &models.Admin{})
+	if err != nil {
+		t.Fatalf("Failed to run migrations: %v", err)
+	}
+	config.DB = db
+
+	app := fiber.New()
+	routes.SetupRoutes(app)
+
+	// Password to use
+	testPassword := "TestPass123!"
+	hashed, _ := utils.HashPassword(testPassword)
+
+	// Create an unverified/pending student
+	student := models.Student{
+		RollNo:       "STU001",
+		Name:         "Pending Student",
+		CourseName:   "MCA",
+		Semester:     1,
+		ContactNo:    "1234567890",
+		EmailID:      "pending@student.com",
+		EnrollmentNo: "EN-STU001",
+		Password:     hashed,
+		IsVerified:   false,
+		Status:       "Pending",
+	}
+	if err := config.DB.Create(&student).Error; err != nil {
+		t.Fatalf("Failed to create pending student: %v", err)
+	}
+
+	// 1. TEST FAILED FIRST LOGIN FLOW
+	t.Run("Login_Unverified_FirstAttempt", func(t *testing.T) {
+		// A. Fetch a captcha challenge first
+		capReq := httptest.NewRequest("GET", "/api/auth/captcha", nil)
+		capResp, err := app.Test(capReq)
+		if err != nil {
+			t.Fatalf("Failed to get captcha: %v", err)
+		}
+		var capBody map[string]interface{}
+		if err := json.NewDecoder(capResp.Body).Decode(&capBody); err != nil {
+			t.Fatalf("Failed to decode captcha response: %v", err)
+		}
+		captchaID := capBody["captcha_id"].(string)
+		question := capBody["question"].(string)
+
+		correctAnswer, err := solveCaptcha(question)
+		if err != nil {
+			t.Fatalf("Error solving captcha: %v", err)
+		}
+
+		// B. Try to login
+		loginPayload := map[string]string{
+			"email_id":       "pending@student.com",
+			"password":       testPassword,
+			"captcha_id":     captchaID,
+			"captcha_answer": correctAnswer,
+		}
+		body, _ := json.Marshal(loginPayload)
+		req := httptest.NewRequest("POST", "/api/auth/login", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed login attempt: %v", err)
+		}
+
+		// First login of unverified student must return 403 Forbidden with email
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected status 403 Forbidden, got %d", resp.StatusCode)
+		}
+
+		var respBody map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+			t.Fatalf("Failed to decode login response: %v", err)
+		}
+		if respBody["email"] != "pending@student.com" {
+			t.Errorf("Expected response email to be pending@student.com, got %v", respBody["email"])
+		}
+
+		// C. Retrieve the created OTP
+		var otp models.OTP
+		err = config.DB.Where("email = ? AND purpose = ?", "pending@student.com", "register").First(&otp).Error
+		if err != nil {
+			t.Fatalf("Could not find registration reactivation OTP in database: %v", err)
+		}
+
+		// D. Verify the OTP
+		verifyPayload := map[string]string{
+			"email": "pending@student.com",
+			"code":  otp.Code,
+		}
+		vBody, _ := json.Marshal(verifyPayload)
+		vReq := httptest.NewRequest("POST", "/api/auth/verify-otp", bytes.NewBuffer(vBody))
+		vReq.Header.Set("Content-Type", "application/json")
+
+		vResp, err := app.Test(vReq)
+		if err != nil {
+			t.Fatalf("Failed verify OTP request: %v", err)
+		}
+
+		if vResp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status 200 OK after OTP verification, got %d", vResp.StatusCode)
+		}
+
+		var vRespBody map[string]interface{}
+		if err := json.NewDecoder(vResp.Body).Decode(&vRespBody); err != nil {
+			t.Fatalf("Failed to decode verify response: %v", err)
+		}
+		if vRespBody["access_token"] == nil {
+			t.Error("Expected access token after successful OTP verification, got nil")
+		}
+
+		// Check that student status is now Active and IsVerified is true
+		var updatedStudent models.Student
+		config.DB.Where("roll_no = ?", "STU001").First(&updatedStudent)
+		if !updatedStudent.IsVerified {
+			t.Error("Expected student IsVerified to be true")
+		}
+		if updatedStudent.Status != "Active" {
+			t.Errorf("Expected student Status to be Active, got %s", updatedStudent.Status)
+		}
+	})
+
+	// 2. TEST STATUS AFTER SERVER REFETCH (INACTIVE STATUS)
+	t.Run("Deactivate_Refetch_BlockLogin", func(t *testing.T) {
+		// Create a superadmin token to access platform endpoints
+		saToken, err := utils.GenerateAccessToken("SA001", "superadmin@example.com", "superadmin")
+		if err != nil {
+			t.Fatalf("Failed to generate superadmin token: %v", err)
+		}
+
+		// A. Update student status to Inactive via PUT /api/admin/platform/users/:id
+		updatePayload := map[string]interface{}{
+			"status": "Inactive",
+		}
+		uBody, _ := json.Marshal(updatePayload)
+		uReq := httptest.NewRequest("PUT", "/api/admin/platform/users/STU001", bytes.NewBuffer(uBody))
+		uReq.Header.Set("Content-Type", "application/json")
+		uReq.Header.Set("Authorization", "Bearer "+saToken)
+
+		uResp, err := app.Test(uReq)
+		if err != nil {
+			t.Fatalf("Failed to execute update user request: %v", err)
+		}
+		if uResp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status 200 OK for update user, got %d", uResp.StatusCode)
+		}
+
+		// B. Refetch the user registry via GET /api/admin/platform/users
+		rReq := httptest.NewRequest("GET", "/api/admin/platform/users", nil)
+		rReq.Header.Set("Authorization", "Bearer "+saToken)
+
+		rResp, err := app.Test(rReq)
+		if err != nil {
+			t.Fatalf("Failed to execute refetch users request: %v", err)
+		}
+		if rResp.StatusCode != http.StatusOK {
+			t.Errorf("Expected status 200 OK for refetch users, got %d", rResp.StatusCode)
+		}
+
+		var rBody map[string]interface{}
+		if err := json.NewDecoder(rResp.Body).Decode(&rBody); err != nil {
+			t.Fatalf("Failed to decode refetch users response: %v", err)
+		}
+		usersList := rBody["users"].([]interface{})
+
+		// Find the student in the list and verify status is Inactive
+		foundInactive := false
+		for _, u := range usersList {
+			userMap := u.(map[string]interface{})
+			if userMap["id"] == "STU001" {
+				if userMap["status"] != "Inactive" {
+					t.Errorf("Expected refetched student status to be Inactive, got %v", userMap["status"])
+				}
+				foundInactive = true
+				break
+			}
+		}
+		if !foundInactive {
+			t.Error("Did not find updated student in user registry")
+		}
+
+		// C. Attempt login as Inactive student
+		capReq := httptest.NewRequest("GET", "/api/auth/captcha", nil)
+		capResp, err := app.Test(capReq)
+		if err != nil {
+			t.Fatalf("Failed to get captcha: %v", err)
+		}
+		var capBody map[string]interface{}
+		if err := json.NewDecoder(capResp.Body).Decode(&capBody); err != nil {
+			t.Fatalf("Failed to decode captcha response: %v", err)
+		}
+		captchaID := capBody["captcha_id"].(string)
+		question := capBody["question"].(string)
+		correctAnswer, _ := solveCaptcha(question)
+
+		loginPayload := map[string]string{
+			"email_id":       "pending@student.com",
+			"password":       testPassword,
+			"captcha_id":     captchaID,
+			"captcha_answer": correctAnswer,
+		}
+		body, _ := json.Marshal(loginPayload)
+		req := httptest.NewRequest("POST", "/api/auth/login", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed login attempt: %v", err)
+		}
+
+		// Inactive student login must return 403 Forbidden with account inactive error
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected status 403 Forbidden for inactive student login, got %d", resp.StatusCode)
+		}
+
+		var respBody map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&respBody); err != nil {
+			t.Fatalf("Failed to decode response body: %v", err)
+		}
+		if respBody["error"] != "Your account is inactive. Please contact the administrator." {
+			t.Errorf("Expected inactive error message, got: %v", respBody["error"])
+		}
+		// Confirm it does NOT return an email key to prevent frontend OTP transition
+		if respBody["email"] != nil {
+			t.Errorf("Expected email to be nil for inactive account login, got %v", respBody["email"])
+		}
+	})
+}
+
+func TestEmailValidationAndAdminStatus(t *testing.T) {
+	// Set test environment variables
+	t.Setenv("JWT_SECRET", strings.Repeat("test-jwt-", 4))
+	t.Setenv("JWT_REFRESH_SECRET", strings.Repeat("test-refresh-jwt-", 4))
+
+	// Initialize test DB
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("Failed to connect to DB: %v", err)
+	}
+	err = db.AutoMigrate(&models.Student{}, &models.OTP{}, &models.Admin{})
+	if err != nil {
+		t.Fatalf("Failed to run migrations: %v", err)
+	}
+	config.DB = db
+
+	app := fiber.New()
+	routes.SetupRoutes(app)
+
+	saToken, err := utils.GenerateAccessToken("SA001", "superadmin@example.com", "superadmin")
+	if err != nil {
+		t.Fatalf("Failed to generate superadmin token: %v", err)
+	}
+
+	// 1. Invalid Email format validation tests
+	t.Run("CreateUser_InvalidEmailFormat", func(t *testing.T) {
+		payloads := []map[string]interface{}{
+			{"name": "Student A", "id": "STU101", "email": "x@.", "role": "Student", "dept": "CS", "semester": 1},
+			{"name": "Student B", "id": "STU102", "email": "invalidemail", "role": "Student", "dept": "CS", "semester": 1},
+			{"name": "Admin A", "id": "ADM101", "email": "invalidemail@", "role": "Admin", "dept": "CS"},
+		}
+
+		for _, payload := range payloads {
+			body, _ := json.Marshal(payload)
+			req := httptest.NewRequest("POST", "/api/admin/platform/users", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Authorization", "Bearer "+saToken)
+
+			resp, err := app.Test(req)
+			if err != nil {
+				t.Fatalf("Failed to execute request: %v", err)
+			}
+			if resp.StatusCode != http.StatusBadRequest {
+				t.Errorf("Expected status 400 Bad Request for invalid email %s, got %d", payload["email"], resp.StatusCode)
+			}
+		}
+	})
+
+	// 2. Same-table case variant checks (e.g. Student email case duplicate check)
+	t.Run("CreateUser_SameTableCaseVariantEmailDuplicate", func(t *testing.T) {
+		// First create student using Case.Dupe@example.com
+		payload1 := map[string]interface{}{
+			"name": "Student Dupe 1", "id": "STU103", "email": "Case.Dupe@example.com", "role": "Student", "dept": "CS", "semester": 1,
+		}
+		body1, _ := json.Marshal(payload1)
+		req1 := httptest.NewRequest("POST", "/api/admin/platform/users", bytes.NewBuffer(body1))
+		req1.Header.Set("Content-Type", "application/json")
+		req1.Header.Set("Authorization", "Bearer "+saToken)
+		resp1, err := app.Test(req1)
+		if err != nil {
+			t.Fatalf("Failed to create first student: %v", err)
+		}
+		if resp1.StatusCode != http.StatusCreated {
+			t.Fatalf("Expected status 201 Created for first student, got %d", resp1.StatusCode)
+		}
+
+		// Now attempt to create student using case.dupe@example.com
+		payload2 := map[string]interface{}{
+			"name": "Student Dupe 2", "id": "STU104", "email": "case.dupe@example.com", "role": "Student", "dept": "CS", "semester": 1,
+		}
+		body2, _ := json.Marshal(payload2)
+		req2 := httptest.NewRequest("POST", "/api/admin/platform/users", bytes.NewBuffer(body2))
+		req2.Header.Set("Content-Type", "application/json")
+		req2.Header.Set("Authorization", "Bearer "+saToken)
+		resp2, err := app.Test(req2)
+		if err != nil {
+			t.Fatalf("Failed to attempt duplicate student creation: %v", err)
+		}
+		if resp2.StatusCode != http.StatusConflict {
+			t.Errorf("Expected status 409 Conflict for same-table duplicate case variant email, got %d", resp2.StatusCode)
+		}
+	})
+
+	// 3. Cross-table case variant checks (Admin vs Student)
+	t.Run("CreateUser_CrossTableCaseVariantEmailDuplicate", func(t *testing.T) {
+		// Attempt to create an Admin with the duplicate email (e.g. CASE.DUPE@example.com)
+		payload := map[string]interface{}{
+			"name": "Admin Dupe", "id": "ADM102", "email": "CASE.DUPE@example.com", "role": "Admin", "dept": "CS",
+		}
+		body, _ := json.Marshal(payload)
+		req := httptest.NewRequest("POST", "/api/admin/platform/users", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+saToken)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("Failed to attempt cross-table duplicate admin creation: %v", err)
+		}
+		if resp.StatusCode != http.StatusConflict {
+			t.Errorf("Expected status 409 Conflict for cross-table duplicate case variant email, got %d", resp.StatusCode)
+		}
+	})
+
+	// 4. Admin status update and enforcement tests
+	t.Run("AdminStatus_UpdateAndEnforce", func(t *testing.T) {
+		// Create a test Admin using CreatePlatformUser
+		adminID := "ADM201"
+		adminEmail := "admin.test@example.com"
+		adminPayload := map[string]interface{}{
+			"name": "Test Admin", "id": adminID, "email": adminEmail, "role": "Admin", "dept": "CS",
+		}
+		body1, _ := json.Marshal(adminPayload)
+		req1 := httptest.NewRequest("POST", "/api/admin/platform/users", bytes.NewBuffer(body1))
+		req1.Header.Set("Content-Type", "application/json")
+		req1.Header.Set("Authorization", "Bearer "+saToken)
+		resp1, err := app.Test(req1)
+		if err != nil {
+			t.Fatalf("Failed to create admin: %v", err)
+		}
+		if resp1.StatusCode != http.StatusCreated {
+			t.Fatalf("Expected status 201 Created for admin creation, got %d", resp1.StatusCode)
+		}
+
+		var createdBody map[string]interface{}
+		if err := json.NewDecoder(resp1.Body).Decode(&createdBody); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
+		tempPassword := createdBody["temporary_password"].(string)
+
+		// Verify initial status is Active via GET
+		reqGet1 := httptest.NewRequest("GET", "/api/admin/platform/users", nil)
+		reqGet1.Header.Set("Authorization", "Bearer "+saToken)
+		respGet1, err := app.Test(reqGet1)
+		if err != nil {
+			t.Fatalf("Failed to get platform users: %v", err)
+		}
+		var getBody1 map[string]interface{}
+		if err := json.NewDecoder(respGet1.Body).Decode(&getBody1); err != nil {
+			t.Fatalf("Failed to decode platform users: %v", err)
+		}
+		users := getBody1["users"].([]interface{})
+		foundAdmin := false
+		for _, u := range users {
+			uMap := u.(map[string]interface{})
+			if uMap["id"] == adminID {
+				if uMap["status"] != "Active" {
+					t.Errorf("Expected admin status to initially be Active, got %v", uMap["status"])
+				}
+				foundAdmin = true
+				break
+			}
+		}
+		if !foundAdmin {
+			t.Fatalf("Did not find newly created admin in user registry")
+		}
+
+		// Try updating Admin status to an invalid value (should fail with 400)
+		invalidAdminPayload := map[string]interface{}{
+			"status": "Bananas",
+		}
+		bodyInvalidAdmin, _ := json.Marshal(invalidAdminPayload)
+		reqInvalidAdmin := httptest.NewRequest("PUT", "/api/admin/platform/users/"+adminID, bytes.NewBuffer(bodyInvalidAdmin))
+		reqInvalidAdmin.Header.Set("Content-Type", "application/json")
+		reqInvalidAdmin.Header.Set("Authorization", "Bearer "+saToken)
+		respInvalidAdmin, err := app.Test(reqInvalidAdmin)
+		if err != nil {
+			t.Fatalf("Failed to execute invalid admin update request: %v", err)
+		}
+		if respInvalidAdmin.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected status 400 Bad Request for invalid admin status update, got %d", respInvalidAdmin.StatusCode)
+		}
+
+		// Try updating Student status to an invalid value (should fail with 400)
+		invalidStudentPayload := map[string]interface{}{
+			"status": "Bananas",
+		}
+		bodyInvalidStudent, _ := json.Marshal(invalidStudentPayload)
+		reqInvalidStudent := httptest.NewRequest("PUT", "/api/admin/platform/users/STU103", bytes.NewBuffer(bodyInvalidStudent))
+		reqInvalidStudent.Header.Set("Content-Type", "application/json")
+		reqInvalidStudent.Header.Set("Authorization", "Bearer "+saToken)
+		respInvalidStudent, err := app.Test(reqInvalidStudent)
+		if err != nil {
+			t.Fatalf("Failed to execute invalid student update request: %v", err)
+		}
+		if respInvalidStudent.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected status 400 Bad Request for invalid student status update, got %d", respInvalidStudent.StatusCode)
+		}
+
+		// Update Admin status to Inactive via PUT
+		updatePayload := map[string]interface{}{
+			"status": "Inactive",
+		}
+		bodyUpdate, _ := json.Marshal(updatePayload)
+		reqUpdate := httptest.NewRequest("PUT", "/api/admin/platform/users/"+adminID, bytes.NewBuffer(bodyUpdate))
+		reqUpdate.Header.Set("Content-Type", "application/json")
+		reqUpdate.Header.Set("Authorization", "Bearer "+saToken)
+		respUpdate, err := app.Test(reqUpdate)
+		if err != nil {
+			t.Fatalf("Failed to update admin: %v", err)
+		}
+		if respUpdate.StatusCode != http.StatusOK {
+			t.Fatalf("Expected status 200 OK for updating admin status, got %d", respUpdate.StatusCode)
+		}
+
+		// Refetch admin and verify status is Inactive
+		respGet2, err := app.Test(reqGet1)
+		if err != nil {
+			t.Fatalf("Failed to get platform users after update: %v", err)
+		}
+		var getBody2 map[string]interface{}
+		if err := json.NewDecoder(respGet2.Body).Decode(&getBody2); err != nil {
+			t.Fatalf("Failed to decode platform users: %v", err)
+		}
+		users2 := getBody2["users"].([]interface{})
+		for _, u := range users2 {
+			uMap := u.(map[string]interface{})
+			if uMap["id"] == adminID {
+				if uMap["status"] != "Inactive" {
+					t.Errorf("Expected updated admin status to be Inactive, got %v", uMap["status"])
+				}
+				break
+			}
+		}
+
+		// Try logging in with updated admin account (should be blocked)
+		loginPayload := map[string]interface{}{
+			"admin_id": adminID,
+			"password": tempPassword,
+		}
+		bodyLogin, _ := json.Marshal(loginPayload)
+		reqLogin := httptest.NewRequest("POST", "/api/admin/auth/login", bytes.NewBuffer(bodyLogin))
+		reqLogin.Header.Set("Content-Type", "application/json")
+		respLogin, err := app.Test(reqLogin)
+		if err != nil {
+			t.Fatalf("Failed to execute login request: %v", err)
+		}
+
+		// Inactive admin login must return 403 Forbidden with account inactive error
+		if respLogin.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected login status 403 Forbidden for inactive admin, got %d", respLogin.StatusCode)
+		}
+		var loginRespBody map[string]interface{}
+		if err := json.NewDecoder(respLogin.Body).Decode(&loginRespBody); err != nil {
+			t.Fatalf("Failed to decode login response: %v", err)
+		}
+		if loginRespBody["error"] != "Your account is inactive. Please contact the administrator." {
+			t.Errorf("Expected inactive admin error message, got: %v", loginRespBody["error"])
+		}
+	})
 }
